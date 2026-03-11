@@ -14,10 +14,11 @@ void Engine::run() {
     std::string input;
 
     while (running) {
-        std::cout << "> ";
+        std::cout << ">";
         std::getline(std::cin, input);
 
-        if (handleCommand(input) == CommandResult::EXIT) {
+        //Terminate engine if exit commnand is triggered
+        if (handleCommand(input) == CommandType::EXIT) {
             running = false;
         }
     }

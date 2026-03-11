@@ -1,9 +1,16 @@
 #pragma once
+
+#include "engine.h"
+
 #include <string>
 
-enum class CommandResult {
-	RUNNING,
-	EXIT
+
+enum class CommandType {
+    ECHO,
+    UNKNOWN,
+    EXIT
 };
 
-CommandResult handleCommand(const std::string& command);
+CommandType handleCommand(const std::string& command);
+CommandType parseCommand(const std::string& command);
+CommandType runCMD(CommandType cmdType);

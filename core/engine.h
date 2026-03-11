@@ -8,3 +8,8 @@ class Engine{
         Engine();     
         void run();
 };
+
+enum class EngineState {
+	RUNNING,
+	EXIT
+};
