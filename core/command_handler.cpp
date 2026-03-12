@@ -16,7 +16,8 @@ static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
     {"unknown", CommandType::UNKNOWN},
     {"exit", CommandType::EXIT}, 
     {"help", CommandType::HELP}, 
-    {"about", CommandType::ABOUT}
+    {"about", CommandType::ABOUT},
+    {"status", CommandType::STATUS}
 };
 
 //CommandType -> Execution function mapping
@@ -26,7 +27,8 @@ static const std::unordered_map<CommandType, std::function<void(const std::strin
     {CommandType::UNKNOWN, [](const std::string&) { runUnknown(); }},
     {CommandType::EXIT, [](const std::string&) {  }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER. NOTHING SHOULD BE DONE IN THIS ABSTRACTION
     {CommandType::HELP, runHelp},
-    {CommandType::ABOUT, [](const std::string&) { runAbout(); }}
+    {CommandType::ABOUT, [](const std::string&) { runAbout(); }},
+    {CommandType::STATUS, [](const std::string&) { }} // THIS IS INTENTIONAL. STATUS IS HANDLED IN ENGINE LAYER.
 
 };
 
@@ -36,7 +38,9 @@ static const std::unordered_map<CommandType, std::string> COMMAND_DESCRIPTIONS =
     {CommandType::ECHO, "Echoes the input back to the user. Usage: echo [text]"},
     {CommandType::UNKNOWN, "Default response for unrecognized commands."},
     {CommandType::EXIT, "Terminates the JARVIS Core Engine. Usage: exit"},
-    {CommandType::HELP, "Provides information about available commands. Usage: help [command]"}
+    {CommandType::HELP, "Provides information about available commands. Usage: help [command]"},
+    {CommandType::ABOUT, "Provides information about JARVIS. Usage: about"},
+    {CommandType::STATUS, "Shows engine state, uptime, and last command. Usage: status"}
 };
 
 //PARSING HELPER FUNCTIONS
@@ -186,6 +190,9 @@ void runHelp(const std::string& payload) {
             }
         }
     }
+    
+    //If payload isnt empty we need to parse data and determine the command the user needs help with
+    
 }
 
 //About command implementation

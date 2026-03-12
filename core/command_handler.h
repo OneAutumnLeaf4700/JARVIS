@@ -10,7 +10,8 @@ enum class CommandType {
     UNKNOWN,
     EXIT,
     HELP, 
-    ABOUT
+    ABOUT,
+    STATUS
 };
 
 //Structs
