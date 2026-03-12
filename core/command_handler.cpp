@@ -177,6 +177,10 @@ void runHelp(const std::string& payload) {
             if (it != COMMAND_DESCRIPTIONS.end()) {
                 std::cout << "  - " << name << ": " << it->second << std::endl;
             }
+            else {
+                std::cout << "  - " << name << ": No description available." << std::endl;
+            }
         }
     }
 }
+
