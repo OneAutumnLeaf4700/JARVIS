@@ -26,3 +26,6 @@ env/
 .vscode/settings.json
 .idea/
 *.swp
+
+#TODO list 
+TODO.md

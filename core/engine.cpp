@@ -17,11 +17,15 @@ void Engine::run() {
         std::cout << ">";
         std::getline(std::cin, input);
 
-        //Terminate engine if exit commnand is triggered
-        if (handleCommand(input) == CommandType::EXIT) {
-            running = false;
+        CommandType cmdType = handleCommand(input);
+
+        if (cmdType == CommandType::EXIT) {
+            terminate();
         }
     }
+}
 
-    std::cout << "JARVIS Core Engine shutting down..." << std::endl;
+void Engine::terminate() {
+    std::cout << "Terminating JARVIS Core Engine..." << std::endl;
+    running = false;
 }

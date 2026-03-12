@@ -7,9 +7,6 @@ class Engine{
     public:
         Engine();     
         void run();
+        void terminate();
 };
 
-enum class EngineState {
-	RUNNING,
-	EXIT
-};
