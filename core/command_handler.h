@@ -9,7 +9,8 @@ enum class CommandType {
     ECHO,
     UNKNOWN,
     EXIT,
-    HELP
+    HELP, 
+    ABOUT
 };
 
 //Structs
@@ -28,5 +29,5 @@ void runUnknown();
 CommandType extractCommandType(std::istringstream& stream);
 std::string extractPayload(std::istringstream& stream);
 void runHelp(const std::string& payload);
-
+void runAbout();
 

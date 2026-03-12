@@ -15,7 +15,8 @@ static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
     {"echo", CommandType::ECHO},
     {"unknown", CommandType::UNKNOWN},
     {"exit", CommandType::EXIT}, 
-    {"help", CommandType::HELP}
+    {"help", CommandType::HELP}, 
+    {"about", CommandType::ABOUT}
 };
 
 //CommandType -> Execution function mapping
@@ -23,7 +24,10 @@ static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
 static const std::unordered_map<CommandType, std::function<void(const std::string&)>> COMMAND_DISPATCH = {
     {CommandType::ECHO, runEcho},
     {CommandType::UNKNOWN, [](const std::string&) { runUnknown(); }},
-    {CommandType::HELP, runHelp}
+    {CommandType::EXIT, [](const std::string&) {  }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER. NOTHING SHOULD BE DONE IN THIS ABSTRACTION
+    {CommandType::HELP, runHelp},
+    {CommandType::ABOUT, [](const std::string&) { runAbout(); }}
+
 };
 
 //CommandType -> Description mapping for help command
@@ -184,3 +188,8 @@ void runHelp(const std::string& payload) {
     }
 }
 
+//About command implementation
+void runAbout() {
+    std::cout << "JARVIS Core Engine v1.0" << std::endl;
+    std::cout << "Developed by Rayyan." << std::endl;
+}
