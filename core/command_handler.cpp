@@ -190,9 +190,29 @@ void runHelp(const std::string& payload) {
             }
         }
     }
-    
-    //If payload isnt empty we need to parse data and determine the command the user needs help with
-    
+    else {
+        //Payload is not empty: user wants help for a specific command
+        std::string commandName = toLower(payload);
+        
+        //Look up the command in COMMAND_MAP
+        auto it = COMMAND_MAP.find(commandName);
+        
+        if (it != COMMAND_MAP.end()) {
+            //Command found, look up its description
+            CommandType cmdType = it->second;
+            auto descIt = COMMAND_DESCRIPTIONS.find(cmdType);
+            
+            if (descIt != COMMAND_DESCRIPTIONS.end()) {
+                std::cout << commandName << ": " << descIt->second << std::endl;
+            } else {
+                std::cout << "No description available for command: " << commandName << std::endl;
+            }
+        } else {
+            //Command not found
+            std::cout << "Command not found: " << commandName << std::endl;
+            std::cout << "Type 'help' to see all available commands." << std::endl;
+        }
+    }
 }
 
 //About command implementation
