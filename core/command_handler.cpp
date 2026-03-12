@@ -14,16 +14,26 @@
 static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
     {"echo", CommandType::ECHO},
     {"unknown", CommandType::UNKNOWN},
-    {"exit", CommandType::EXIT}
+    {"exit", CommandType::EXIT}, 
+    {"help", CommandType::HELP}
 };
 
 //CommandType -> Execution function mapping
 //Maps CommandType to their corresponding execution functions
 static const std::unordered_map<CommandType, std::function<void(const std::string&)>> COMMAND_DISPATCH = {
     {CommandType::ECHO, runEcho},
-    {CommandType::UNKNOWN, [](const std::string&) { runUnknown(); }}
+    {CommandType::UNKNOWN, [](const std::string&) { runUnknown(); }},
+    {CommandType::HELP, runHelp}
 };
 
+//CommandType -> Description mapping for help command
+//Maps CommandType to their corresponding descriptions for help command
+static const std::unordered_map<CommandType, std::string> COMMAND_DESCRIPTIONS = {
+    {CommandType::ECHO, "Echoes the input back to the user. Usage: echo [text]"},
+    {CommandType::UNKNOWN, "Default response for unrecognized commands."},
+    {CommandType::EXIT, "Terminates the JARVIS Core Engine. Usage: exit"},
+    {CommandType::HELP, "Provides information about available commands. Usage: help [command]"}
+};
 
 //PARSING HELPER FUNCTIONS
 //Trim function to remove leading and trailing whitespace from a string
@@ -147,4 +157,26 @@ void runEcho(const std::string& payload) {
 //Unknown command implementation
 void runUnknown() {
     std::cout << "Command not recognised. Please try again." << std::endl;
+}
+
+//Help command implementation
+void runHelp(const std::string& payload) {
+    //Help must list all commands available to jarvis. 
+    //Will do this by iterating through command map and printing out keys in string format, alongside description of each.
+
+    //Payload must be parsed to determine whether user wants to see all commands or get help on a specific command
+    if (payload.empty()) {
+        //No payload, list all commands
+        std::cout << "Available commands:" << std::endl;
+
+        //Iterate through COMMAND_MAP to get each command name (key) and its CommandType (value).
+        //For each entry, look up the description in COMMAND_DESCRIPTIONS using the CommandType.
+        //Each map entry is a std::pair — .first is the key, .second is the value.
+        for (const auto& [name, type] : COMMAND_MAP) {
+            auto it = COMMAND_DESCRIPTIONS.find(type);
+            if (it != COMMAND_DESCRIPTIONS.end()) {
+                std::cout << "  - " << name << ": " << it->second << std::endl;
+            }
+        }
+    }
 }
