@@ -25,7 +25,7 @@ static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
 static const std::unordered_map<CommandType, std::function<void(const std::string&)>> COMMAND_DISPATCH = {
     {CommandType::ECHO, runEcho},
     {CommandType::UNKNOWN, [](const std::string&) { runUnknown(); }},
-    {CommandType::EXIT, [](const std::string&) {  }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER. NOTHING SHOULD BE DONE IN THIS ABSTRACTION
+    {CommandType::EXIT, [](const std::string&) {  }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER.
     {CommandType::HELP, runHelp},
     {CommandType::ABOUT, [](const std::string&) { runAbout(); }},
     {CommandType::STATUS, [](const std::string&) { }} // THIS IS INTENTIONAL. STATUS IS HANDLED IN ENGINE LAYER.
@@ -44,6 +44,7 @@ static const std::unordered_map<CommandType, std::string> COMMAND_DESCRIPTIONS =
 };
 
 //PARSING HELPER FUNCTIONS
+
 //Trim function to remove leading and trailing whitespace from a string
 namespace {
 std::string trim(const std::string& text) {

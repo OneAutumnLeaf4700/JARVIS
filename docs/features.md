@@ -7,27 +7,57 @@ Use it to:
 - [ ] Tick items off as you implement them  
 - [ ] Add new ideas as they come up  
 
-At the moment, **nothing here is implemented** – this is a planning and learning tool only.
+This checklist tracks both completed prototype milestones and upcoming work.
 
 ---
 
 ## Phase 1 – CLI Assistant
 
 ### Core Engine (C++)
-- [ ] Basic command-line interface (CLI) entry point
-- [ ] Core request/response loop (read → process → respond)
-- [ ] Command router to dispatch user intents
+- [x] Basic command-line interface (CLI) entry point
+- [x] Core request/response loop (read → process → respond)
+- [x] Command router to dispatch user intents
 - [ ] Plugin manager for loading and unloading plugins
 - [ ] Configuration system for basic settings (e.g., paths, models)
 
 ### Plugins (Initial Set)
 - [ ] System control plugin (e.g., open application, shutdown, volume)
-- [ ] Help / introspection plugin (list commands and plugins)
-- [ ] Simple utility plugin (e.g., echo, time, date)
+- [x] Help / introspection command support (includes `help` and `help <command>`)
+- [x] Simple utility command support (`echo`, `about`, `status`)
 
 ### Reliability & UX
 - [ ] Structured logging for core and plugins
 - [ ] Graceful error handling and user-friendly error messages
+
+### Current Command Set Snapshot
+- [x] `echo`
+- [x] `help`
+- [x] `help <command>`
+- [x] `about`
+- [x] `status` (engine state, uptime, last command)
+- [x] `exit`
+
+---
+
+## Phase 1b – Service Foundation (Next)
+
+### Core Refactor
+- [ ] Extract transport-agnostic engine API (`executeCommand`, `getStatus`)
+- [ ] Move direct console printing out of core domain logic
+- [ ] Keep CLI as a thin adapter to engine responses
+
+### Contract Layer
+- [ ] Define first protobuf schema (`ExecuteCommand`, `GetStatus`)
+- [ ] Add request/response versioning notes
+
+### C++ Service Layer
+- [ ] Add local gRPC server around engine API
+- [ ] Add request validation and timeout handling
+
+### Python Integration
+- [ ] Generate Python gRPC client from proto
+- [ ] Build first Python worker/client calling C++ service
+- [ ] Validate parity between CLI and Python-driven commands
 
 ---
 

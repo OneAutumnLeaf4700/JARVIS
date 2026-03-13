@@ -3,7 +3,7 @@
 Local AI-powered personal assistant inspired by Iron Man's JARVIS.  
 Designed to run fully locally with a modular plugin architecture.
 
-**Status:** Early design phase – documentation and architecture only, no implementation yet.
+**Status:** Active prototype phase. C++ CLI core is implemented and being migrated toward a service-oriented hybrid architecture.
 
 ---
 
@@ -21,20 +21,20 @@ Designed to run fully locally with a modular plugin architecture.
 
 ## Architecture
 
-JARVIS uses a hybrid architecture:
+JARVIS uses a hybrid architecture with a long-term service-first direction:
 
-- **C++** for the core engine, plugin management, and system control  
-- **Python** for the AI layer, LLM reasoning, speech recognition, and embeddings
+- **C++ Core Service** for engine state, command execution, policy, and performance-critical workflows
+- **Python Worker Layer** for AI orchestration, NLP/LLM tasks, and rapidly evolving integrations
+- **Contract Layer (Protobuf/gRPC)** for typed, versioned communication between C++ and Python
 
-Communication between layers is planned via **gRPC** (or REST / local sockets).
+Communication between layers is planned primarily via **gRPC**.
 
 High-level flow:
 
-- Microphone / CLI input  
-- Speech recognition (for voice)  
-- Command parsing and intent understanding  
-- Plugin selection and execution  
-- System actions and response (voice / text)
+- Client input (CLI/voice/UI)  
+- Typed request into C++ service API  
+- C++ executes directly or delegates async work to Python workers  
+- Result/events returned to client layer
 
 
 
@@ -54,10 +54,12 @@ High-level flow:
 
 ## Roadmap
 
-**Phase 1 – CLI Assistant**  
-- Simple command-line input
-- Core engine and plugin system  
-- Basic plugin execution
+**Phase 1 – Service Foundations (Current next target)**  
+- Keep current CLI prototype running while introducing service boundaries
+- Refactor core logic so CLI is only one client of the engine
+- Define first protobuf contracts (`ExecuteCommand`, `GetStatus`)
+- Add initial local gRPC interface in C++
+- Add first Python client/worker that talks to C++ over gRPC
 
 **Phase 2 – Voice Assistant**  
 - Microphone input
@@ -110,11 +112,11 @@ jarvis/
 
 ## Feature Checklist
 
-For a detailed, tickable list of planned features, see `docs/features.md`.  
+For a detailed, tickable list of planned features, see [docs/features.md](docs/features.md).  
 Use it alongside the roadmap to track progress and add new ideas as you learn.
 
 ## How to read these docs while learning
 
-- **Start with this `README`** to understand the overall vision and phases.  
-- **Read `architecture.md`** next for a deeper look at how the pieces fit together conceptually.  
-- **Check `docs/roadmap.md`** to see the planned order of work and think through what each phase would require before writing any code.
+- **Start with this README** to understand the overall vision and current status.  
+- **Read [docs/architecture.md](docs/architecture.md)** next for a deeper look at service boundaries and C++/Python role split.  
+- **Check [docs/roadmap.md](docs/roadmap.md)** for the detailed Phase 1 implementation and learning sequence.

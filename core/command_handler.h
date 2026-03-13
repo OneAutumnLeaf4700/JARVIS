@@ -3,7 +3,6 @@
 #include <string>
 #include <unordered_map>
 
-
 //Enum classes
 enum class CommandType {
     ECHO,
@@ -20,15 +19,18 @@ struct ParsedCommand {
     std::string payload;
 };
 
-//Function declarations
+//User input handling functions
 CommandType handleCommand(const std::string& command);
 ParsedCommand parseCommand(const std::string& command);
-void runCMD(ParsedCommand command);
+
+//Parsing helper functions
 std::string toLower(std::string text);
-void runEcho(const std::string& payload);
-void runUnknown();
 CommandType extractCommandType(std::istringstream& stream);
 std::string extractPayload(std::istringstream& stream);
+
+//COMMAND TYPE IMPLEMENTATIONS
+void runCMD(ParsedCommand command);
+void runEcho(const std::string& payload);
+void runUnknown();
 void runHelp(const std::string& payload);
 void runAbout();
-

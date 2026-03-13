@@ -1,81 +1,100 @@
 # JARVIS Architecture
 
-## Overview
+## Why hybrid (C++ and Python)
 
-JARVIS is designed as a hybrid system:
+JARVIS is designed as a hybrid system because each language is best at different jobs:
 
-- **C++ Core Engine**: Handles system control, plugin management, command routing, and performance-critical tasks.  
-- **Python AI Layer**: Handles LLM reasoning, natural language processing, speech recognition, and embeddings.
+- C++ is best for long-running engine logic, low-latency command handling, and performance-critical runtime paths.
+- Python is best for AI tooling, fast-moving integrations, and rapid experimentation.
 
-This document describes the **conceptual architecture only**. It is meant to guide design and learning before any implementation work begins.
+The goal is not to mix them randomly. The goal is to split responsibilities cleanly and connect them through a stable contract.
 
----
+## Current state and target state
 
-## Module Responsibilities
+Current state:
 
-**Core Engine (C++):**
-- Plugin manager
-- Command router
-- OS integration
-- System-level execution
+- Working C++ CLI prototype exists in the core layer.
+- Command parsing and dispatch are implemented.
+- Basic command set exists (`echo`, `help`, `about`, `status`, `exit`).
 
-**AI Layer (Python):**
-- Local LLM interactions
-- Speech recognition (Whisper/Vosk)
-- Text-to-speech (Piper/Coqui)
-- Memory management and embeddings
+Target state:
 
-**Plugins:**
-- Modular commands and actions
-- Examples: system control, reminders, search, music
+- C++ becomes an always-on core service.
+- Python runs as one or more worker/client processes.
+- Both layers communicate through typed gRPC contracts.
+- CLI, voice, and future UI become clients of the same service API.
 
-**Voice Module:**
-- Microphone input
-- Wake word detection
-- Speech-to-text and text-to-speech
+## Why not direct function calls between C++ and Python
 
-**Memory System:**
-- Store and retrieve user information
-- Semantic search via embeddings
+C++ and Python use different runtimes, memory models, and type systems. They do not directly call each other without a bridge.
 
----
+Common bridge options:
 
-## Communication Flow
+1. Subprocess text I/O (stdin/stdout)
+2. In-process bindings (for example pybind11)
+3. Embedded Python interpreter in C++
+4. RPC/service boundary (gRPC)
 
-High-level request/response flow:
+Chosen long-term approach: RPC/service boundary with gRPC.
 
-User voice / CLI input  
-↓  
-Speech recognition (for voice input)  
-↓  
-Command parsing and intent understanding  
-↓  
-Plugin selection and execution  
-↓  
-System actions and response (voice / text)
+Reason:
 
+- It scales better to multi-process and multi-device systems.
+- It gives explicit contracts and versioning.
+- It supports strong observability and operational control.
+- It allows each layer to evolve independently.
 
-Communication between C++ core and Python AI layer is via **gRPC** (or REST / local sockets).
+## Layered design
 
----
+1. Core Service (C++)
+- Owns runtime state and command execution.
+- Enforces policy, auth checks, and safety guards.
+- Publishes status/events.
 
-## Plugin Interface
+2. Python Intelligence Layer
+- Runs AI/NLP workflows.
+- Handles external APIs and fast-changing business logic.
+- Operates as workers that call C++ APIs and consume events.
 
-Each plugin follows a standard conceptual interface:
+3. Contract Layer (Protobuf/gRPC)
+- Defines request/response schemas.
+- Defines service APIs.
+- Provides versioned compatibility between C++ and Python.
 
-```text
-plugin:
-  name
-  description
-  commands
-  execute(command, context) -> result
-```
+4. Client Layer (CLI/Voice/UI)
+- Accepts user input.
+- Sends structured requests to core service.
+- Renders responses.
 
-At a high level:
+## High-level request flow
 
-- `name`: Human-readable identifier for the plugin.  
-- `description`: Short summary of what the plugin can do.  
-- `commands`: List of supported commands/intents the plugin understands.  
-- `execute(...)`: Entry point called by the core engine when a matching command is routed to this plugin.
+1. Client sends structured command to C++ service.
+2. C++ either executes synchronously or delegates async work.
+3. Python worker performs AI/integration tasks when needed.
+4. Result is returned and optionally emitted as an event.
 
-Plugins are planned to be dynamically loaded by the core engine so that new capabilities can be added without changing the core.
+## Performance and reliability principles
+
+- Keep hot paths in C++.
+- Prefer binary serialization (protobuf) over ad-hoc text parsing across process boundaries.
+- Use long-lived service connections, not per-command process startup.
+- Use async queues with backpressure for non-blocking workloads.
+- Add structured logging, metrics, and tracing early.
+
+## Migration guidance from current code
+
+The existing code does not need a drastic rewrite. It needs controlled refactoring.
+
+Keep:
+
+- Command enum and parse flow concepts.
+- Dispatch model and command handlers.
+- Engine state tracking patterns (for example uptime and status).
+
+Refactor next:
+
+- Separate pure engine logic from direct terminal I/O.
+- Introduce a service-facing API (for example executeCommand/getStatus methods).
+- Keep CLI as a thin client that calls that API.
+
+This preserves your current progress while moving toward a scalable architecture.
