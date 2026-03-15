@@ -27,5 +27,9 @@ env/
 .idea/
 *.swp
 
+# Generated files
+generated/
+
 #TODO list 
 TODO.md
+

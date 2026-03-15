@@ -4,6 +4,8 @@
 #include <unordered_map>
 
 //Enum classes
+
+//Command types supported by JARVIS
 enum class CommandType {
     ECHO,
     UNKNOWN,

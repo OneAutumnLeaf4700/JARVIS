@@ -1,0 +1,49 @@
+//Define the proto version
+syntax = "proto3";
+
+//Define the package name for the proto file
+package jarvis.v1;
+
+//Define the service thats going to be bridging communication between programming layers
+service JarvisService {
+    rpc ProcessCommand (ExecuteCommandRequest) returns (ExecuteCommandResponse);
+}
+
+//Define the messages that are going to be used as methods of communication between programming layers
+//Request message for the ProcessCommand RPC
+message ExecuteCommandRequest {
+    CommandType command = 1; // Command Type
+    string payload = 2; // Command Payload (if any)
+}
+
+//Response message for the ProcessCommand RPC
+message ExecuteCommandResponse {
+    bool success = 1; // Indicates if the command was executed successfully
+    string message = 2; // Response message or error details
+    CommandType command_type = 3; // Type of the executed command
+    ErrorCode error_code = 4; // Error code if the command execution failed
+}
+
+//Enums for RPC logic.
+//Keep seperate from other logic layers to avoid unintended issues
+
+//Command types 
+enum CommandType {
+    COMMAND_TYPE_UNSPECIFIED = 0; // Default value for unspecified command
+    COMMAND_TYPE_ECHO = 1; 
+    COMMAND_TYPE_UNKNOWN = 2;
+    COMMAND_TYPE_EXIT = 3;
+    COMMAND_TYPE_HELP = 4;
+    COMMAND_TYPE_ABOUT = 5;
+    COMMAND_TYPE_STATUS = 6;
+}
+
+//Error codes for command execution debugging and response handling
+enum ErrorCode {
+    ERROR_CODE_UNSPECIFIED = 0; // Default value for unspecified error
+    ERROR_CODE_NONE = 1;
+    ERROR_CODE_INVALID_COMMAND = 2;
+    ERROR_CODE_EXECUTION_FAILED = 3;
+    ERROR_CODE_UNKNOWN_ERROR = 4;
+}
+
