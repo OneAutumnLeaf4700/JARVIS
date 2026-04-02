@@ -31,8 +31,8 @@ CommandType extractCommandType(std::istringstream& stream);
 std::string extractPayload(std::istringstream& stream);
 
 //COMMAND TYPE IMPLEMENTATIONS
-void runCMD(ParsedCommand command);
-void runEcho(const std::string& payload);
-void runUnknown();
-void runHelp(const std::string& payload);
-void runAbout();
+std::string runCMD(ParsedCommand command);
+std::string runEcho(const std::string& payload);
+std::string runUnknown();
+std::string runHelp(const std::string& payload);
+std::string runAbout();

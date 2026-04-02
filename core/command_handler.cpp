@@ -22,13 +22,13 @@ static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
 
 //CommandType -> Execution function mapping
 //Maps CommandType to their corresponding execution functions
-static const std::unordered_map<CommandType, std::function<void(const std::string&)>> COMMAND_DISPATCH = {
+static const std::unordered_map<CommandType, std::function<std::string(const std::string&)>> COMMAND_DISPATCH = {
     {CommandType::ECHO, runEcho},
-    {CommandType::UNKNOWN, [](const std::string&) { runUnknown(); }},
-    {CommandType::EXIT, [](const std::string&) {  }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER.
+    {CommandType::UNKNOWN, [](const std::string&) { return runUnknown(); }},
+    {CommandType::EXIT, [](const std::string&) { return std::string(""); }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER.
     {CommandType::HELP, runHelp},
-    {CommandType::ABOUT, [](const std::string&) { runAbout(); }},
-    {CommandType::STATUS, [](const std::string&) { }} // THIS IS INTENTIONAL. STATUS IS HANDLED IN ENGINE LAYER.
+    {CommandType::ABOUT, [](const std::string&) { return runAbout(); }},
+    {CommandType::STATUS, [](const std::string&) { return std::string(""); }} // THIS IS INTENTIONAL. STATUS IS HANDLED IN ENGINE LAYER.
 
 };
 
@@ -128,19 +128,24 @@ std::string extractPayload(std::istringstream& stream) {
     return trim(payload);
 }
 
-//Handle the user input command and return 
+//Handle the user input command, print the output, and return the command type
 CommandType handleCommand(const std::string& input) {
     //Command must be parsed to determine the appropriate action
 
     //Parse the command and run
     ParsedCommand parsed = parseCommand(input);
-    runCMD(parsed);
+    std::string output = runCMD(parsed);
+
+    //Print output to console (CLI path — gRPC path uses runCMD directly)
+    if (!output.empty()) {
+        std::cout << output << std::endl;
+    }
 
     return parsed.type; //Return the command type for any additional handling in the engine loop
 }
 
-//Run the command based on its type and return the result
-void runCMD(ParsedCommand command) {
+//Run the command based on its type and return the result as a string
+std::string runCMD(ParsedCommand command) {
     //Split object into type and payload
     CommandType cmdType = command.type;
     std::string payload = command.payload;
@@ -149,34 +154,36 @@ void runCMD(ParsedCommand command) {
     auto it = COMMAND_DISPATCH.find(cmdType);
     if (it != COMMAND_DISPATCH.end()) {
         //Command type found in dispatch map, execute the corresponding function
-        it->second(payload);
+        return it->second(payload);
     } else {
         //Command type not found, run unknown command handler
-        runUnknown();
+        return runUnknown();
     }
 }
 
 //COMMAND TYPE IMPLEMENTATIONS
 
 //Echo command implementation
-void runEcho(const std::string& payload) {
-    std::cout << payload << std::endl;
+std::string runEcho(const std::string& payload) {
+    return payload;
 }
 
 //Unknown command implementation
-void runUnknown() {
-    std::cout << "Command not recognised. Please try again." << std::endl;
+std::string runUnknown() {
+    return "Command not recognised. Please try again.";
 }
 
 //Help command implementation
-void runHelp(const std::string& payload) {
-    //Help must list all commands available to jarvis. 
+std::string runHelp(const std::string& payload) {
+    //Help must list all commands available to jarvis.
     //Will do this by iterating through command map and printing out keys in string format, alongside description of each.
+
+    std::ostringstream out;
 
     //Payload must be parsed to determine whether user wants to see all commands or get help on a specific command
     if (payload.empty()) {
         //No payload, list all commands
-        std::cout << "Available commands:" << std::endl;
+        out << "Available commands:\n";
 
         //Iterate through COMMAND_MAP to get each command name (key) and its CommandType (value).
         //For each entry, look up the description in COMMAND_DESCRIPTIONS using the CommandType.
@@ -184,40 +191,41 @@ void runHelp(const std::string& payload) {
         for (const auto& [name, type] : COMMAND_MAP) {
             auto it = COMMAND_DESCRIPTIONS.find(type);
             if (it != COMMAND_DESCRIPTIONS.end()) {
-                std::cout << "  - " << name << ": " << it->second << std::endl;
+                out << "  - " << name << ": " << it->second << "\n";
             }
             else {
-                std::cout << "  - " << name << ": No description available." << std::endl;
+                out << "  - " << name << ": No description available.\n";
             }
         }
     }
     else {
         //Payload is not empty: user wants help for a specific command
         std::string commandName = toLower(payload);
-        
+
         //Look up the command in COMMAND_MAP
         auto it = COMMAND_MAP.find(commandName);
-        
+
         if (it != COMMAND_MAP.end()) {
             //Command found, look up its description
             CommandType cmdType = it->second;
             auto descIt = COMMAND_DESCRIPTIONS.find(cmdType);
-            
+
             if (descIt != COMMAND_DESCRIPTIONS.end()) {
-                std::cout << commandName << ": " << descIt->second << std::endl;
+                out << commandName << ": " << descIt->second;
             } else {
-                std::cout << "No description available for command: " << commandName << std::endl;
+                out << "No description available for command: " << commandName;
             }
         } else {
             //Command not found
-            std::cout << "Command not found: " << commandName << std::endl;
-            std::cout << "Type 'help' to see all available commands." << std::endl;
+            out << "Command not found: " << commandName << "\n";
+            out << "Type 'help' to see all available commands.";
         }
     }
+
+    return out.str();
 }
 
 //About command implementation
-void runAbout() {
-    std::cout << "JARVIS Core Engine v1.0" << std::endl;
-    std::cout << "Developed by Rayyan." << std::endl;
+std::string runAbout() {
+    return "JARVIS Core Engine v1.0\nDeveloped by Rayyan.";
 }

@@ -69,7 +69,7 @@ void Engine::printStatus() const {
     std::cout << "Last command: " << lastCommand << std::endl;
 }
 
-//Determine command type
+//Determine command type to perform required action
 std::string Engine::extractCommandName(const std::string& input) {
     std::istringstream stream(input);
     std::string commandName;
