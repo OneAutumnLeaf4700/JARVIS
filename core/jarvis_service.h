@@ -2,6 +2,7 @@
 
 #include "../generated/cpp/jarvis.grpc.pb.h"
 #include "command_handler.h"
+#include "engine.h"
 #include <grpcpp/grpcpp.h>
 
 // JarvisServiceImpl is the server-side implementation of the gRPC JarvisService.
@@ -9,7 +10,7 @@
 // This class acts as the adapter between gRPC transport layer and internal engine logic.
 class JarvisServiceImpl final : public jarvis::v1::JarvisService::Service {
  public:
-  JarvisServiceImpl();
+  explicit JarvisServiceImpl(Engine& engine);
   virtual ~JarvisServiceImpl();
 
   // Override the ProcessCommand RPC method from the generated service interface.
@@ -26,6 +27,8 @@ class JarvisServiceImpl final : public jarvis::v1::JarvisService::Service {
       ::jarvis::v1::ExecuteCommandResponse* response) override;
 
  private:
+  Engine& engine_;
+
   // Helper method to convert proto CommandType enum to internal CommandType enum.
   // Why: proto enums and internal enums are separate.
   // We must translate between them at the adapter boundary.

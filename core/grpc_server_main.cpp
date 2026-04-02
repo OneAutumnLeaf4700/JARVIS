@@ -1,14 +1,19 @@
+#include "engine.h"
 #include "jarvis_service.h"
 
 #include <grpcpp/grpcpp.h>
+#include <spdlog/spdlog.h>
 
-#include <iostream>
 #include <memory>
 #include <string>
 
 int main() {
+    spdlog::set_level(spdlog::level::info);
+    spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
+
     const std::string serverAddress = "0.0.0.0:50051";
-    JarvisServiceImpl service;
+    Engine engine;
+    JarvisServiceImpl service(engine);
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort(serverAddress, grpc::InsecureServerCredentials());
@@ -16,11 +21,11 @@ int main() {
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
     if (!server) {
-        std::cerr << "Failed to start gRPC server." << std::endl;
+        spdlog::error("Failed to start gRPC server on {}", serverAddress);
         return 1;
     }
 
-    std::cout << "JARVIS gRPC server listening on " << serverAddress << std::endl;
+    spdlog::info("JARVIS gRPC server listening on {}", serverAddress);
     server->Wait();
     return 0;
 }

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
+find_package(spdlog REQUIRED)
 
 add_library(
     jarvis_proto
@@ -43,6 +44,7 @@ add_executable(
     jarvis_grpc_server
     core/grpc_server_main.cpp
     core/command_handler.cpp
+    core/engine.cpp
     core/jarvis_service.cpp
 )
 
@@ -50,4 +52,5 @@ target_link_libraries(
     jarvis_grpc_server
     PRIVATE
     jarvis_proto
+    spdlog::spdlog
 )

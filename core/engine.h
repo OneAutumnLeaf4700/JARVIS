@@ -3,6 +3,13 @@
 #include <chrono>
 #include <string>
 
+//Status struct to return status information from engine to service layer
+struct StatusInfo {
+    bool running;
+    long uptimeSeconds;
+    std::string lastCommand;
+};
+
 class Engine{
     private:
         bool running; //Running flag
@@ -16,5 +23,8 @@ class Engine{
         Engine();     
         void run();
         void terminate();
+        StatusInfo getStatusInfo() const;
 };
+
+
 

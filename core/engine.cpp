@@ -79,3 +79,15 @@ std::string Engine::extractCommandName(const std::string& input) {
     }
     return commandName;
 }
+
+//Get status information to send to jarvis service layer
+StatusInfo Engine::getStatusInfo() const {
+    const auto now = std::chrono::steady_clock::now();
+    const auto secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+
+    StatusInfo info;
+    info.running = running;
+    info.uptimeSeconds = secondsElapsed;
+    info.lastCommand = lastCommand;
+    return info;
+}

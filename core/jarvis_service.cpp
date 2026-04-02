@@ -1,10 +1,12 @@
 #include "jarvis_service.h"
 #include "command_handler.h"
 
-// Constructor
-JarvisServiceImpl::JarvisServiceImpl() {
-  // Initialize the service. For now, nothing special to do.
-  // Later, you might initialize state or connect to the engine here.
+#include <iomanip>
+#include <sstream>
+#include <spdlog/spdlog.h>
+
+// Constructor — takes a reference to the Engine so STATUS can query live state.
+JarvisServiceImpl::JarvisServiceImpl(Engine& engine) : engine_(engine) {
 }
 
 // Destructor
@@ -19,51 +21,65 @@ JarvisServiceImpl::~JarvisServiceImpl() {
     const ::jarvis::v1::ExecuteCommandRequest* request,
     ::jarvis::v1::ExecuteCommandResponse* response) {
   
-  // Step 1: Extract command type from the proto request.
-  // The proto request contains a CommandType enum value.
-  // We need to convert it to our internal CommandType enum.
+  // Step 1: Validate — reject unspecified command type before doing any work.
+  if (request->command() == jarvis::v1::COMMAND_TYPE_UNSPECIFIED) {
+    spdlog::warn("Rejected request: COMMAND_TYPE_UNSPECIFIED");
+    response->set_success(false);
+    response->set_message("Invalid request: command type must be specified.");
+    response->set_command_type(jarvis::v1::COMMAND_TYPE_UNSPECIFIED);
+    response->set_error_code(jarvis::v1::ERROR_CODE_INVALID_COMMAND);
+    return ::grpc::Status::OK;
+  }
+
+  // Step 2: Translate proto enum → internal enum and extract payload.
   CommandType internalCmd = protoCommandToInternal(request->command());
-  
-  // Step 2: Build the command payload (what comes after the command name).
-  // In your case, this is the optional text argument to the command.
   std::string payload = request->payload();
-  
-  // Step 3: Parse and execute the command using existing engine logic.
-  // We reuse the existing command handling flow instead of duplicating logic.
-  // This is why the adapter pattern is good: command logic stays centralized.
+
+  spdlog::info("ProcessCommand: command={} payload='{}'",
+      jarvis::v1::CommandType_Name(request->command()), payload);
+
+  // Step 3: Build and run the command.
+  // STATUS returns "" from runCMD — handled as a special case below.
   ParsedCommand parsedCmd;
   parsedCmd.type = internalCmd;
   parsedCmd.payload = payload;
-  
-  // Step 4: Run the command through the dispatch system.
-  // This calls the appropriate handler (echo, help, status, etc).
-  // The output is returned as a string instead of being printed to stdout.
+
   std::string output = runCMD(parsedCmd);
 
-  // Step 5: Fill the response object with results.
-  // The response must be filled before we return.
-  // These are the fields defined in your proto ExecuteCommandResponse message.
+  // STATUS is a special case: its data lives in the Engine, not the command handler.
+  if (internalCmd == CommandType::STATUS) {
+    StatusInfo info = engine_.getStatusInfo();
 
-  // success field: for now, always true (assumes command executed).
-  // Later track failures and set this to false on errors.
-  response->set_success(true);
+    const long hours   = info.uptimeSeconds / 3600;
+    const long minutes = (info.uptimeSeconds % 3600) / 60;
+    const long seconds = info.uptimeSeconds % 60;
 
-  // message field: the actual output of the command.
+    std::ostringstream out;
+    out << "Engine: " << (info.running ? "running" : "stopped") << "\n";
+    out << "Uptime: "
+        << std::setfill('0') << std::setw(2) << hours   << ":"
+        << std::setw(2)      << minutes << ":"
+        << std::setw(2)      << seconds << "\n";
+    out << "Last command: " << info.lastCommand;
+    output = out.str();
+  }
+
+  // Step 4: Determine success.
+  // UNKNOWN means the command wasn't recognised — that's a client error.
+  const bool success = (internalCmd != CommandType::UNKNOWN);
+
+  if (!success) {
+    spdlog::warn("ProcessCommand: unrecognised command, returning error");
+  } else {
+    spdlog::info("ProcessCommand: OK");
+  }
+
+  // Step 5: Fill the response.
+  response->set_success(success);
   response->set_message(output);
-  
-  // command_type field: echo back the normalized command type.
-  // We convert the internal enum back to proto enum for the response.
   response->set_command_type(internalCommandToProto(internalCmd));
-  
-  // error_code field: indicate success or failure.
-  // For now, always NO_ERROR (success).
-  // Later, different error codes for different failures.
-  response->set_error_code(resultToProtoErrorCode(true));
-  
-  // Step 6: Return gRPC status.
-  // OK means the RPC itself succeeded (transport level).
-  // Even if the command failed, we return OK here because the RPC transport worked.
-  // The actual command success/failure is encoded in the response fields above.
+  response->set_error_code(resultToProtoErrorCode(success));
+
   return ::grpc::Status::OK;
 }
 
