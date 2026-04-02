@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package jarvis.ai.v1;
+
+service JarvisAIService {
+    rpc ProcessNaturalLanguage(NaturalLanguageRequest) returns (NaturalLanguageResponse);
+}
+
+message NaturalLanguageRequest {
+    string text = 1;  // The raw natural language input from the user
+}
+
+message NaturalLanguageResponse {
+    bool success = 1;
+    string reply = 2;   // The AI's response text
+    string error  = 3;  // Error message if success=false
+}

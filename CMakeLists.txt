@@ -40,11 +40,31 @@ target_link_libraries(
     jarvis_proto
 )
 
+add_library(
+    jarvis_ai_proto
+    generated/cpp/ai.pb.cc
+    generated/cpp/ai.grpc.pb.cc
+)
+
+target_include_directories(
+    jarvis_ai_proto
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/generated/cpp
+)
+
+target_link_libraries(
+    jarvis_ai_proto
+    PUBLIC
+    protobuf::libprotobuf
+    gRPC::grpc++
+)
+
 add_executable(
     jarvis_grpc_server
     core/grpc_server_main.cpp
     core/command_handler.cpp
     core/engine.cpp
+    core/ai_client.cpp
     core/jarvis_service.cpp
 )
 
@@ -52,5 +72,6 @@ target_link_libraries(
     jarvis_grpc_server
     PRIVATE
     jarvis_proto
+    jarvis_ai_proto
     spdlog::spdlog
 )

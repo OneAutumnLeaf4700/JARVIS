@@ -5,8 +5,9 @@
 #include <sstream>
 #include <spdlog/spdlog.h>
 
-// Constructor — takes a reference to the Engine so STATUS can query live state.
-JarvisServiceImpl::JarvisServiceImpl(Engine& engine) : engine_(engine) {
+// Constructor — takes the Engine (for STATUS) and the AI client (for UNKNOWN commands).
+JarvisServiceImpl::JarvisServiceImpl(Engine& engine, JarvisAIClient& aiClient)
+    : engine_(engine), aiClient_(aiClient) {
 }
 
 // Destructor
@@ -64,15 +65,17 @@ JarvisServiceImpl::~JarvisServiceImpl() {
     output = out.str();
   }
 
-  // Step 4: Determine success.
-  // UNKNOWN means the command wasn't recognised — that's a client error.
-  const bool success = (internalCmd != CommandType::UNKNOWN);
-
-  if (!success) {
-    spdlog::warn("ProcessCommand: unrecognised command, returning error");
-  } else {
-    spdlog::info("ProcessCommand: OK");
+  // Step 4: UNKNOWN commands are forwarded to the Python AI server.
+  // The payload contains the full natural language text the user sent.
+  if (internalCmd == CommandType::UNKNOWN) {
+    spdlog::info("ProcessCommand: unrecognised command, forwarding to AI layer");
+    output = aiClient_.ProcessNaturalLanguage(payload);
   }
+
+  // Success if we got a non-empty reply (even AI errors return a descriptive string).
+  const bool success = (internalCmd != CommandType::UNKNOWN) || !output.empty();
+
+  spdlog::info("ProcessCommand: {}", success ? "OK" : "FAIL");
 
   // Step 5: Fill the response.
   response->set_success(success);

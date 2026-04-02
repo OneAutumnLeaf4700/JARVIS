@@ -14,8 +14,12 @@ import jarvis_pb2_grpc
 
 
 def call_command(stub, command, payload):
+    # Build a request object
     request = jarvis_pb2.ExecuteCommandRequest(command=command, payload=payload)
+    
+    # GRPC serialises request and sends it over TCP to the server, which processes it and sends back a response.
     response = stub.ProcessCommand(request)
+
     print("success:", response.success)
     print("message:", response.message)
     print("command_type:", jarvis_pb2.CommandType.Name(response.command_type))
@@ -25,12 +29,17 @@ def call_command(stub, command, payload):
 
 def main():
     channel = grpc.insecure_channel("localhost:50051")
-    stub = jarvis_pb2_grpc.JarvisServiceStub(channel)
+
+    # stub is pythons auto generated proxy object
+    # Calling stub.ProcessCommand() feels like a local function call,                                       
+    # but under the hood it serialises data and sends it over TCP.   
+    stub = jarvis_pb2_grpc.JarvisServiceStub(channel) 
 
     call_command(stub, jarvis_pb2.COMMAND_TYPE_ECHO, "hello from python")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_HELP, "")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_STATUS, "")
-    call_command(stub, jarvis_pb2.COMMAND_TYPE_UNKNOWN, "this should fail")
+    # UNKNOWN routes to the Python AI server — payload is the full natural language text.
+    call_command(stub, jarvis_pb2.COMMAND_TYPE_UNKNOWN, "what is the weather like today?")
     
 
 
