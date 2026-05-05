@@ -35,14 +35,14 @@ def main():
     # but under the hood it serialises data and sends it over TCP.   
     stub = jarvis_pb2_grpc.JarvisServiceStub(channel) 
 
+
+    # Test various command types. The server will route these to the appropriate handler based on the command type.
+    # Known command types dont need to go through the python ai layer, they should simply
     call_command(stub, jarvis_pb2.COMMAND_TYPE_ECHO, "hello from python")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_HELP, "")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_STATUS, "")
     # UNKNOWN routes to the Python AI server — payload is the full natural language text.
     call_command(stub, jarvis_pb2.COMMAND_TYPE_UNKNOWN, "what is the weather like today?")
-    
-
-
 
 if __name__ == "__main__":
     main()
