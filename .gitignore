@@ -30,6 +30,9 @@ env/
 # Generated files
 generated/
 
-#TODO list 
+#TODO list
 TODO.md
+
+# QMUL coursework material — handbooks, notes, generated guides
+/qmul/
 
