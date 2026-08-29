@@ -1,146 +1,113 @@
-# JARVIS Feature Checklist
+# JARVIS Feature Roadmap & Checklist
 
-This checklist breaks the project into concrete, trackable features.  
-Use it to:
+The single source of truth for "what's built, what's next, what's later." Replaces the old split between a phase checklist and a separate long-horizon tier document — this file now covers both, from shipped features down to stretch goals, in one place.
 
-- [ ] Plan what to build next  
-- [ ] Tick items off as you implement them  
-- [ ] Add new ideas as they come up  
+**Status legend:** ✅ Done &nbsp;·&nbsp; 🚧 In progress &nbsp;·&nbsp; 📋 To do
 
-This checklist tracks both completed prototype milestones and upcoming work.
+For raw unstructured ideas that haven't been sorted into a phase yet, see [`vision.md`](vision.md). For the step-by-step execution plan behind the current phase, see [`roadmap.md`](roadmap.md).
 
 ---
 
-## Phase 1 – CLI Assistant
+## Phase 1 — CLI Assistant & Service Foundation ✅ Complete
 
-### Core Engine (C++)
-- [x] Basic command-line interface (CLI) entry point
-- [x] Core request/response loop (read → process → respond)
-- [x] Command router to dispatch user intents
-- [ ] Plugin manager for loading and unloading plugins
-- [ ] Configuration system for basic settings (e.g., paths, models)
+Core engine, gRPC service boundary, and C++↔Python round-trip are all working end-to-end.
 
-### Plugins (Initial Set)
-- [ ] System control plugin (e.g., open application, shutdown, volume)
-- [x] Help / introspection command support (includes `help` and `help <command>`)
-- [x] Simple utility command support (`echo`, `about`, `status`)
-
-### Reliability & UX
-- [ ] Structured logging for core and plugins
-- [ ] Graceful error handling and user-friendly error messages
-
-### Current Command Set Snapshot
-- [x] `echo`
-- [x] `help`
-- [x] `help <command>`
-- [x] `about`
-- [x] `status` (engine state, uptime, last command)
-- [x] `exit`
+- ✅ CLI entry point and stateful command loop (`echo`, `help`, `help <command>`, `about`, `status`, `exit`)
+- ✅ Engine logic decoupled from stdout (`runCMD()` returns strings, not prints)
+- ✅ Command router / dispatch map
+- ✅ First protobuf contract (`ExecuteCommand`, `GetStatus`)
+- ✅ C++ gRPC server (`:50051`) exposing the engine via `JarvisService.ProcessCommand`
+- ✅ Python gRPC AI server (`:50052`) exposing `JarvisAIService.ProcessNaturalLanguage`
+- ✅ C++ → Python gRPC client (`JarvisAIClient`) forwarding `UNKNOWN` commands, with a 5s deadline so a dead AI process never blocks the core server
+- ✅ Structured logging via spdlog (C++ side)
+- ✅ Request hardening (validation, timeout handling on the AI round-trip)
+- ✅ Python smoke test covering known-command and `UNKNOWN → AI` paths
+- 📋 Plugin manager for loading/unloading plugins — deferred to Phase 3, see below
+- 📋 Configuration system (paths, models, settings) — not yet started
 
 ---
 
-## Phase 1b – Service Foundation (Next)
+## Phase 2 — Intelligence Layer 🚧 In progress
 
-### Core Refactor
-- [ ] Extract transport-agnostic engine API (`executeCommand`, `getStatus`)
-- [ ] Move direct console printing out of core domain logic
-- [ ] Keep CLI as a thin adapter to engine responses
+The Python AI server currently just echoes input back (`[AI echo] <text>`) — this phase replaces that with real classification and, later, an LLM.
 
-### Contract Layer
-- [ ] Define first protobuf schema (`ExecuteCommand`, `GetStatus`)
-- [ ] Add request/response versioning notes
+Full step-by-step plan: [`roadmap.md`](roadmap.md#phase-2--intelligence-layer).
 
-### C++ Service Layer
-- [ ] Add local gRPC server around engine API
-- [ ] Add request validation and timeout handling
-
-### Python Integration
-- [ ] Generate Python gRPC client from proto
-- [ ] Build first Python worker/client calling C++ service
-- [ ] Validate parity between CLI and Python-driven commands
+- 🚧 Rule-based intent classifier (`ai/intent_classifier.py`) — keyword/token-set matching over `STATUS` / `ECHO` / `ABOUT` / `UNKNOWN`. **Module + pytest suite (`ai/test_intent_classifier.py`, 24 tests) done**; standalone and passing (`pytest ai/`). Still to wire into the AI server (next items).
+- 📋 Extend `ai.proto` with `intent` + `confidence` fields on `NaturalLanguageResponse`
+- 📋 Wire classifier into `jarvis_ai_server.py`
+- 📋 C++ side re-dispatches on classified intent instead of just forwarding AI reply text
+- 📋 Smoke test coverage for classified vs. unclassified inputs
+- 📋 Structured logging on the Python side (replace `print()`)
+- 📋 **Local LLM integration (Ollama / llama.cpp)** — swap or fall back from the rule classifier once the `classify()` interface is stable. Same signature, different backend — rules stay the fast/cheap path, LLM is the fallback for anything the rules miss.
+- 📋 **Multi-turn context** — per-session conversation history on the Python side so follow-ups resolve correctly. Depends on LLM integration + a session id propagated from C++.
+- 📋 **Safety guardrails** — confirmation prompts before destructive intents (delete file, shut down, etc.), allowlists of safe operations. Real teeth on this depend on Phase 3 having a plugin that can actually do something destructive.
 
 ---
 
-## Phase 2 – Voice Assistant
+## Phase 3 — Voice I/O 📋 To do
 
-### Input & Wake Word
-- [ ] Microphone input capture
-- [ ] Wake word detection (e.g., “Jarvis”) to start listening
-- [ ] Configurable push-to-talk / always-listen mode
-
-### Speech-to-Text (STT)
-- [ ] Integrate local STT engine (e.g., Whisper / Vosk)
-- [ ] Map transcribed text into the same flow as CLI commands
-- [ ] Handle low-confidence transcripts gracefully (ask for clarification)
-
-### Text-to-Speech (TTS)
-- [ ] Integrate local TTS engine (e.g., Piper / Coqui)
-- [ ] Configurable voice and speaking rate
-- [ ] Fallback to text-only responses if audio fails
+- 📋 Microphone capture + wake word ("Jarvis") — needs a wake-word library (Porcupine / openWakeWord)
+- 📋 Speech-to-text (Whisper / Vosk) — transcript feeds into the existing `UNKNOWN`-command pipeline unchanged
+- 📋 Text-to-speech (Piper / Coqui) — orthogonal to STT, no dependency
+- 📋 Push-to-talk vs. always-listen mode switching (config-driven)
+- 📋 Graceful low-confidence handling — ask for clarification instead of guessing
 
 ---
 
-## Phase 3 – Plugin Expansion
+## Phase 4 — Plugins, Desktop Control & Integrations 📋 To do
 
-### Productivity & Utilities
-- [ ] Reminders and basic calendar integration
-- [ ] File search plugin (by name and simple content)
-- [ ] Notes / TODO plugin for quick capture and recall
+The plugin manager is the prerequisite for everything else in this phase — it's the "intent → handler" registration layer the intent classifier (Phase 2) plugs into.
 
-### Media & System Control
-- [ ] Media control plugin (e.g., play/pause, next track)
-- [ ] Integration with a music service (e.g., Spotify or local player)
-- [ ] Advanced system automation (scripts, shortcuts, macros)
-
----
-
-## Phase 4 – Persistent Memory
-
-### Structured Data
-- [ ] Local database for structured memory (e.g., SQLite)
-- [ ] Schemas for users, sessions, and saved items (notes, reminders, etc.)
-
-### Semantic Memory
-- [ ] Embedding generation for relevant items (notes, history)
-- [ ] Vector store (e.g., Chroma / FAISS) for semantic search
-- [ ] Retrieval of past context to improve responses
-
-### Privacy & Control
-- [ ] Clear controls for inspecting and deleting stored data
-- [ ] Configurable retention policies (e.g., auto-expire old items)
+- 📋 Plugin manager — discover/load/dispatch to plugins at runtime, registered by intent rather than raw command string
+- 📋 System control plugin — open apps, volume, lock screen, shutdown (needs plugin manager + safety guardrails)
+- 📋 **Desktop interaction** — open a browser and execute a given task in it; take a screenshot on command; explain what's happening on screen (likely vision-model-backed). This is a new plugin category beyond simple OS commands — effectively makes JARVIS an OS-level agent.
+- 📋 File search plugin — by name, later by content
+- 📋 Reminders / notes / TODO plugin — needs plugin manager + persistence (Phase 5)
+- 📋 Media control plugin — play/pause/next/volume, eventually a real service (Spotify)
+- 📋 Calendar / scheduling — CalDAV or provider API, needs a credential store
 
 ---
 
-## Phase 5 – GUI / Dashboard
+## Phase 5 — Persistent Memory 📋 To do
 
-### Core UI
-- [ ] Local dashboard (Qt / Tauri / Web) to interact with JARVIS
-- [ ] View interaction history and search past conversations
-- [ ] Visualize loaded plugins and their status
-
-### Monitoring & Settings
-- [ ] Basic system status (CPU, memory, active tasks)
-- [ ] Settings panel for models, audio devices, and privacy options
+- 📋 Local SQLite store — schema for users, sessions, captured items
+- 📋 Embedding generation for stored notes/history
+- 📋 Vector store + semantic recall (Chroma / FAISS)
+- 📋 Privacy controls — inspect/export/delete stored data, configurable retention
 
 ---
 
-## AI Layer (Cross-Cutting)
+## Phase 6 — UI & Dashboard 📋 To do
 
-These features span multiple phases and rely on the Python AI layer.
-
-- [ ] Local LLM integration (e.g., Ollama / llama.cpp)
-- [ ] Natural language command parsing and intent detection
-- [ ] Simple multi-turn context handling (remember recent exchanges)
-- [ ] Safe-guardrails for potentially harmful commands (confirmation prompts)
+- 📋 Local dashboard (web or desktop) — interaction history, plugin status, system stats. No new backend work needed — just another client of the existing gRPC contract.
+- 📋 Settings panel — models, audio devices, intent thresholds
+- 📋 System monitoring — CPU, memory, active tasks
 
 ---
 
-## Your Ideas & Stretch Goals
+## Smart environment (longer horizon) 📋 To do
 
-Use this space to record extra ideas as you learn and build:
+- 📋 Smart home integration — temperature, lighting, etc. Likely via a Home Assistant bridge rather than reinventing device protocols.
+- 📋 Broader ambient device control as more services get bound into the intent → service mapping system
 
-- [ ] Multi-device support (e.g., mobile companion)
-- [ ] Home automation integrations (e.g., Home Assistant)
-- [ ] Advanced scheduling and routines
-- [ ] Custom wake word training
+---
 
+## Stretch / experimental
+
+These are explicitly *might never happen* — they mark where curiosity could pull the project later, not committed work.
+
+- 📋 Multi-device support — mobile companion talking to the C++ service over the network (forces real auth + TLS)
+- 📋 Custom wake-word training on your own voice
+- 📋 Advanced routines — time/event-based action chains ("every weekday at 8am, summarise my calendar")
+- 📋 JARVIS drafting its own feature plans when it hits an unsupported command — see [`vision.md`](vision.md) for the raw idea; needs a scoping decision before it's more than a note
+
+---
+
+## How to use this document
+
+When a phase completes and you're deciding what's next:
+
+1. Look at what's freshly unblocked — anything whose stated dependency just turned ✅.
+2. Pick whichever item teaches you the most about the concept you want to learn next — not necessarily the most "useful" feature.
+3. Flesh it out into a step-by-step plan in [`roadmap.md`](roadmap.md) before writing code.

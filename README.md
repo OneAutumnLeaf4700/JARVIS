@@ -53,7 +53,7 @@ JARVIS is split into three runtime tiers communicating through versioned protobu
 - **Python owns intelligence** — anything fuzzy, fast-evolving, or LLM-driven. Stateless workers behind a typed contract.
 - **Protobuf/gRPC is the contract** — language-neutral schemas, explicit versioning, binary-efficient on the wire, and forces every request/response shape to be a deliberate design decision rather than ad-hoc text parsing.
 
-See [`docs/architecture.md`](docs/architecture.md) for the full rationale.
+See [`docs/architecture-blueprint.md`](docs/architecture-blueprint.md) (Appendix A) for the full rationale.
 
 ---
 
@@ -115,11 +115,11 @@ JARVIS/
 ├── tools/
 │   └── grpc_smoke_test.py      # End-to-end smoke test
 ├── docs/
-│   ├── architecture.md         # Why hybrid, how layers fit
-│   ├── roadmap.md              # Phase 1 step-by-step (foundation)
-│   ├── phase2-roadmap.md       # Phase 2 step-by-step (intent classifier)
-│   ├── future-features.md      # Long-horizon ideas + dependency notes
-│   └── features.md             # Tickable feature checklist
+│   ├── architecture-blueprint.md  # Binding architecture: pipeline, invariants, core→scaled
+│   ├── roadmap.md                 # Step-by-step execution plan (current + next phase)
+│   ├── features.md                # Full phase-by-phase checklist, done → stretch goals
+│   └── vision.md                  # Unsorted brainstorm / parking lot for future ideas
+├── CLAUDE.md                      # Enforceable project rules (distils the blueprint)
 └── CMakeLists.txt
 ```
 
@@ -203,8 +203,7 @@ Every step in the roadmaps below has a stated learning outcome, not just a build
 
 ## Where to go next
 
-- **[docs/architecture.md](docs/architecture.md)** — the why behind the layer split
-- **[docs/roadmap.md](docs/roadmap.md)** — Phase 1 detailed step-by-step (foundation, mostly complete)
-- **[docs/phase2-roadmap.md](docs/phase2-roadmap.md)** — current focus: rule-based intent classification
-- **[docs/future-features.md](docs/future-features.md)** — long-horizon feature ideas with dependency notes
-- **[docs/features.md](docs/features.md)** — checklist view of every planned feature
+- **[docs/architecture-blueprint.md](docs/architecture-blueprint.md)** — the binding architecture: full core→scaled design, the seven-stage pipeline, and the thirteen invariants every change must obey (why-hybrid/why-gRPC rationale is in its Appendix A). Distilled into the enforceable root [`CLAUDE.md`](CLAUDE.md).
+- **[docs/roadmap.md](docs/roadmap.md)** — step-by-step plan: Phase 1 (done) + Phase 2 (current focus: rule-based intent classification)
+- **[docs/features.md](docs/features.md)** — full checklist, Phase 1 through stretch goals, with status indicators
+- **[docs/vision.md](docs/vision.md)** — unsorted brainstorm of future ideas, not yet promoted into a roadmap
