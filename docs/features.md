@@ -33,9 +33,9 @@ The Python AI server currently just echoes input back (`[AI echo] <text>`) — t
 
 Full step-by-step plan: [`roadmap.md`](roadmap.md#phase-2--intelligence-layer).
 
-- 🚧 Rule-based intent classifier (`ai/intent_classifier.py`) — keyword/token-set matching over `STATUS` / `ECHO` / `ABOUT` / `UNKNOWN`. **Module + pytest suite (`ai/test_intent_classifier.py`, 24 tests) done**; standalone and passing (`pytest ai/`). Still to wire into the AI server (next items).
-- 📋 Extend `ai.proto` with `intent` + `confidence` fields on `NaturalLanguageResponse`
-- 📋 Wire classifier into `jarvis_ai_server.py`
+- ✅ Rule-based intent classifier (`ai/intent_classifier.py`) — keyword/token-set matching over `STATUS` / `ECHO` / `ABOUT` / `UNKNOWN`, with a 24-case pytest suite. Live in the AI server (see next two items).
+- ✅ Extend `ai.proto` with `intent` + `confidence` fields on `NaturalLanguageResponse`
+- ✅ Wire classifier into `jarvis_ai_server.py` — natural-language input now returns a classified `(intent, confidence)` instead of an echo; verified end-to-end over the full C++→Python gRPC path
 - 📋 C++ side re-dispatches on classified intent instead of just forwarding AI reply text
 - 📋 Smoke test coverage for classified vs. unclassified inputs
 - 📋 Structured logging on the Python side (replace `print()`)

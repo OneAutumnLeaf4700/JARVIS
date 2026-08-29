@@ -14,4 +14,6 @@ message NaturalLanguageResponse {
     bool success = 1;
     string reply = 2;   // The AI's response text
     string error  = 3;  // Error message if success=false
+    string intent = 4;  // Classified intent (e.g. "STATUS"), "UNKNOWN" if unresolved
+    float confidence = 5; // Classifier confidence for `intent`, 0.0-1.0
 }

@@ -12,17 +12,21 @@ if str(GENERATED_PY) not in sys.path:
 import ai_pb2
 import ai_pb2_grpc
 
+from intent_classifier import classify
+
 
 class JarvisAIServicer(ai_pb2_grpc.JarvisAIServiceServicer):
     def ProcessNaturalLanguage(self, request, context):
-        print(f"[AI] received: '{request.text}'")
+        intent, confidence = classify(request.text)
+        print(f"[AI] '{request.text}' -> intent={intent} confidence={confidence:.2f}")
 
-        # Placeholder: echo the input back.
-        # This will be replaced with a real LLM call in Phase 3.
-        reply = f"[AI echo] {request.text}"
-
-        print(f"[AI] replying: '{reply}'")
-        return ai_pb2.NaturalLanguageResponse(success=True, reply=reply)
+        reply = f"[detected intent: {intent}, confidence {confidence:.2f}]"
+        return ai_pb2.NaturalLanguageResponse(
+            success=True,
+            reply=reply,
+            intent=intent,
+            confidence=confidence,
+        )
 
 
 def serve():
