@@ -1,0 +1,2 @@
+# Development-only dependencies (test framework). Not required to run JARVIS.
+pytest==8.3.4
