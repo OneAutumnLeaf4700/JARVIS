@@ -42,11 +42,11 @@ Full step-by-step plan: [`roadmap.md`](roadmap.md#phase-2--intelligence-layer).
 
 ---
 
-## Phase 2.5 — LLM-Backed Understanding 📋 To do
+## Phase 2.5 — LLM-Backed Understanding 🚧 In progress
 
 Grows the Understanding tier beyond the rule classifier without changing its stable interface (INV-8).
 
-- 📋 **Local LLM integration (Ollama / llama.cpp)** — swap or fall back from the rule classifier once the `classify()` interface is stable. Same signature, different backend — rules stay the fast/cheap path, LLM is the fallback for anything the rules miss.
+- ✅ **Local LLM integration (Ollama)** — `ai/llm_backend.py` (`llm_classify()`, calls a local `llama3.2:latest` via Ollama, 3.0s timeout, degrades to `("UNKNOWN", 0.0)` on any failure) plus `ai/resolver.py` (`resolve()`, tries the rule classifier first, escalates to the LLM only on a miss, single stable entry point). Wired live into `ai/jarvis_ai_server.py`, which now logs which tier (`rule`/`llm`/`none`) answered each request. `tools/eval_understanding.py` measures rule-only/LLM-only/hybrid accuracy and latency (INV-13). On this dev machine, real local Ollama inference (~8–22s, CPU-bound) exceeds the 3.0s timeout, so the LLM tier degrades gracefully to `UNKNOWN` in practice here rather than demonstrating an accuracy uplift — verified end-to-end via `tools/grpc_smoke_test.py`'s live LLM-escalation case; the mechanism (graceful degradation, no hang/crash) is proven even though this machine's hardware doesn't currently showcase a successful LLM resolve.
 - 📋 **Small-model fast-path escalation (future idea, not scoped)** — a very small/fast model between the rule layer and the full LLM for near-instant recognition, escalating to the bigger model only for complex requests. Rules keep handling the easiest prompts (power on/shutdown/sleep). See [`vision.md`](vision.md#understanding-tier-future-idea-tiered-model-escalation).
 - 📋 **Multi-turn context** — per-session conversation history on the Python side so follow-ups resolve correctly. Depends on LLM integration + a session id propagated from C++.
 - 📋 **Safety guardrails** — confirmation prompts before destructive intents (delete file, shut down, etc.), allowlists of safe operations. Real teeth on this depend on Phase 3 having a plugin that can actually do something destructive.
