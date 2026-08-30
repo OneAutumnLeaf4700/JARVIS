@@ -72,7 +72,7 @@ TEST(PluginConfigTest, GrantPersistsToDiskAndIsReReadOnFreshLoad) {
         "does_not_exist_capabilities.cfg", "test_grants_roundtrip.cfg");
     EXPECT_FALSE(config.isGranted("volume_control"));
 
-    config.grant("volume_control");
+    EXPECT_TRUE(config.grant("volume_control"));  // persists successfully
     EXPECT_TRUE(config.isGranted("volume_control"));  // in-memory takes effect immediately
 
     PluginConfig reloaded = PluginConfig::load(

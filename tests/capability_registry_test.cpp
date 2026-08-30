@@ -276,14 +276,27 @@ TEST(CapabilityRegistryPluginGateTest, T2CapabilityWithoutGrantReturnsDenialInst
     EXPECT_FALSE(executed);
 }
 
-TEST(CapabilityRegistryPluginGateTest, T2CapabilityWithGrantExecutesNormally) {
+// Fixture for the one test in this file that calls config.grant() (which persists to disk) —
+// uses a unique grants path (never the "does_not_exist.cfg" sentinel other test files rely on
+// meaning "no grants file present") and removes it in TearDown() unconditionally, so a failed
+// assertion mid-test can't leak the file into later test runs.
+class CapabilityRegistryGrantTest : public ::testing::Test {
+ protected:
+    std::string grants_file_ = "temp_grants_capability_registry_grant_test.cfg";
+
+    void TearDown() override {
+        std::remove(grants_file_.c_str());
+    }
+};
+
+TEST_F(CapabilityRegistryGrantTest, T2CapabilityWithGrantExecutesNormally) {
     CapabilityRegistry registry;
     registry.registerCapability(Capability{
         "volume_control", CommandType::ECHO, "test", PowerTier::T2_SYSTEM_AFFECTING,
         [](const std::string& payload, ExecutionContext&) { return "volume set to " + payload; }
     });
 
-    PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
     config.grant("volume_control");
     registry.setPluginConfig(&config);
 
@@ -293,11 +306,6 @@ TEST(CapabilityRegistryPluginGateTest, T2CapabilityWithGrantExecutesNormally) {
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(*result, "volume set to 50");
-
-    // config.grant() persists to disk (grantsPath_ == "does_not_exist.cfg"); clean it up so
-    // it doesn't pollute other tests/files that use that same literal path as a sentinel for
-    // "no grants file present" (see consent_gate_test.cpp).
-    std::remove("does_not_exist.cfg");
 }
 
 TEST(CapabilityRegistryPluginGateTest, AllFourBuiltinsStillDispatchWithPluginConfigSetAndEmptyConfig) {
