@@ -37,7 +37,7 @@ int runGrantFlow(const std::string& capabilityName, const CapabilityRegistry& re
     if (capability->powerTier != PowerTier::T2_SYSTEM_AFFECTING) {
         std::cout << "'" << capabilityName << "' is power tier T0/T1 — it doesn't require a "
                      "consent grant.\n";
-        return 1;
+        return 0;
     }
 
     std::cout << "Grant consent for '" << capabilityName << "' (power tier T2)? [y/n] ";
