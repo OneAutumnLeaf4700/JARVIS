@@ -231,11 +231,16 @@ but confirms nothing on the Python side broke), and manual CLI checks for `echo`
 
 ## 10. Deliberately deferred (not built in this design)
 
-- **Dynamic plugin loading** — `.so`/shared-library capabilities discovered and loaded without
-  rebuilding. The registry's `Capability` struct and `registerCapability()` call are shaped so
-  this can be added later (something that discovers and loads shared libraries just needs to
-  end up calling `registerCapability()` the same way `registerBuiltinCapabilities()` does) —
-  but the loader itself isn't built now.
+- **Dynamic plugin loading** — `.so`/shared-library capabilities discovered and loaded at
+  runtime without rebuilding. The registry's dispatch mechanism is now fully separated from
+  command-wiring concerns (INV-6's specific target), but building actual runtime-loaded plugins
+  requires more than just wiring `registerCapability()` calls. Today's identifier space (the
+  compile-time `CommandType` enum) cannot be extended by a runtime-loaded `.so` — a new
+  capability requires a new enumerator, a `COMMAND_MAP` entry, and a proto enum value, all
+  compile-time changes. Genuine runtime discovery and loading would require making this
+  identifier space extensible at runtime (e.g., string-keyed intents instead of enumerators),
+  which is a substantial, not-yet-done piece of future work, not merely implementation detail
+  wiring.
 - **Configuration-driven enable/disable** — per `docs/architecture-blueprint.md` §4.2, tracked
   as a separate future piece.
 - **Consent-gate enforcement** — the orchestrator reading `powerTier` and actually blocking/

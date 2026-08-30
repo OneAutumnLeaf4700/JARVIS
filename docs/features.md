@@ -39,6 +39,7 @@ Full step-by-step plan: [`roadmap.md`](roadmap.md#phase-2--intelligence-layer).
 - ✅ C++ side re-dispatches on classified intent instead of just forwarding AI reply text — `JarvisAIClient::ProcessNaturalLanguage` now returns an `AIResult{reply, intent, confidence}`; `jarvis_service.cpp` re-runs `runCMD()` under the classified `CommandType` when confidence ≥ 0.5
 - ✅ Smoke test coverage for classified vs. unclassified inputs — `tools/grpc_smoke_test.py` covers STATUS/ECHO/ABOUT phrasings plus a genuine UNKNOWN fallback
 - ✅ Structured logging on the Python side (replace `print()`) — `jarvis_ai_server.py` uses `logging` with text/intent/confidence/latency per request
+- ✅ **Capability Registry & C++ test suite** — `Capability` struct, `CapabilityRegistry` class (`core/capability.h`, `core/capability_registry.h/.cpp`), and `ExecutionContext` enable self-registration of capabilities (`echo`, `status`, `about`, `help`) against intents (`CommandType` enumerators); each capability declares a `PowerTier` (all currently `T0_READ_ONLY`). Both CLI (`core/engine.cpp`) and gRPC (`core/jarvis_service.cpp`) dispatch through the registry instead of hardcoded function maps — implementing INV-6 (register, don't hardcode). GoogleTest integration (`CMakeLists.txt` builds `jarvis_tests` target, `tests/capability_registry_test.cpp` contains 15 test cases); this is the project's first C++ test suite. Note: capabilities are still compile-time registered (a new capability requires a new `CommandType` enumerator, a `COMMAND_MAP` entry, and a proto enum value); runtime/dynamic plugin loading (e.g. loading a `.so` without rebuilding) is deliberately deferred.
 
 ---
 
@@ -68,7 +69,7 @@ Grows the Understanding tier beyond the rule classifier without changing its sta
 
 The plugin manager is the prerequisite for everything else in this phase — it's the "intent → handler" registration layer the intent classifier (Phase 2) plugs into.
 
-- 📋 Plugin manager — discover/load/dispatch to plugins at runtime, registered by intent rather than raw command string
+- 📋 **Runtime plugin discovery & loading** — load capabilities from `.so` files at runtime without rebuilding. The Capability Registry (Phase 2.5) handles dispatch through a registry and each capability's self-registration; runtime discovery requires making the capability identifier space (currently the compile-time `CommandType` enum) extensible at runtime — e.g., string-keyed intents instead of enum values. This is a real, not-yet-done piece of future work, not just wiring `registerCapability()` calls.
 - 📋 System control plugin — open apps, volume, lock screen, shutdown (needs plugin manager + safety guardrails)
 - 📋 **Desktop interaction** — open a browser and execute a given task in it; take a screenshot on command; explain what's happening on screen (likely vision-model-backed). This is a new plugin category beyond simple OS commands — effectively makes JARVIS an OS-level agent.
 - 📋 File search plugin — by name, later by content
