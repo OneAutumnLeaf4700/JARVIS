@@ -2,6 +2,7 @@
 
 #include "../generated/cpp/jarvis.grpc.pb.h"
 #include "ai_client.h"
+#include "capability_registry.h"
 #include "command_handler.h"
 #include "engine.h"
 #include <grpcpp/grpcpp.h>
@@ -11,7 +12,7 @@
 // This class acts as the adapter between gRPC transport layer and internal engine logic.
 class JarvisServiceImpl final : public jarvis::v1::JarvisService::Service {
  public:
-  JarvisServiceImpl(Engine& engine, JarvisAIClient& aiClient);
+  JarvisServiceImpl(Engine& engine, JarvisAIClient& aiClient, CapabilityRegistry& registry);
   virtual ~JarvisServiceImpl();
 
   // Override the ProcessCommand RPC method from the generated service interface.
@@ -30,6 +31,7 @@ class JarvisServiceImpl final : public jarvis::v1::JarvisService::Service {
  private:
   Engine& engine_;
   JarvisAIClient& aiClient_;
+  CapabilityRegistry& registry_;
 
   // Helper method to convert proto CommandType enum to internal CommandType enum.
   // Why: proto enums and internal enums are separate.

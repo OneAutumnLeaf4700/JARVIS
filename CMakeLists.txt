@@ -68,6 +68,7 @@ add_executable(
     core/grpc_server_main.cpp
     core/command_handler.cpp
     core/engine.cpp
+    core/capability_registry.cpp
     core/ai_client.cpp
     core/jarvis_service.cpp
 )
