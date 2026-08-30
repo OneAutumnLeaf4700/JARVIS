@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <gtest/gtest.h>
 
 #include "capability.h"
@@ -45,8 +46,25 @@ TEST(ConsentGateTest, T2DeniedWithoutGrant) {
     EXPECT_NE(result.reason.find("--grant"), std::string::npos);
 }
 
-TEST(ConsentGateTest, T2AllowedWithGrant) {
-    PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
+// Fixture for tests that write grant files. Each test gets a unique temp file that is cleaned
+// up after the test to maintain hermetic isolation.
+class ConsentGateGrantTest : public ::testing::Test {
+ protected:
+    std::string grants_file_;
+
+    void SetUp() override {
+        // Create a unique temporary grants file for this test instance.
+        grants_file_ = "temp_grants_" + std::string(__FUNCTION__) + ".cfg";
+    }
+
+    void TearDown() override {
+        // Clean up the grants file after the test.
+        std::remove(grants_file_.c_str());
+    }
+};
+
+TEST_F(ConsentGateGrantTest, T2AllowedWithGrant) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
     config.grant("volume_control");
     ConsentGate gate(config);
 
@@ -56,8 +74,21 @@ TEST(ConsentGateTest, T2AllowedWithGrant) {
     EXPECT_TRUE(result.reason.empty());
 }
 
-TEST(ConsentGateTest, T3AlwaysDeniedEvenIfSomehowGranted) {
-    PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
+class ConsentGateT3Test : public ::testing::Test {
+ protected:
+    std::string grants_file_;
+
+    void SetUp() override {
+        grants_file_ = "temp_grants_" + std::string(__FUNCTION__) + ".cfg";
+    }
+
+    void TearDown() override {
+        std::remove(grants_file_.c_str());
+    }
+};
+
+TEST_F(ConsentGateT3Test, T3AlwaysDeniedEvenIfSomehowGranted) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
     config.grant("delete_files");  // granting is meaningless for T3 — gate must ignore it
     ConsentGate gate(config);
 
@@ -67,8 +98,21 @@ TEST(ConsentGateTest, T3AlwaysDeniedEvenIfSomehowGranted) {
     EXPECT_NE(result.reason.find("not yet implemented"), std::string::npos);
 }
 
-TEST(ConsentGateTest, T4AlwaysDeniedEvenIfSomehowGranted) {
-    PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
+class ConsentGateT4Test : public ::testing::Test {
+ protected:
+    std::string grants_file_;
+
+    void SetUp() override {
+        grants_file_ = "temp_grants_" + std::string(__FUNCTION__) + ".cfg";
+    }
+
+    void TearDown() override {
+        std::remove(grants_file_.c_str());
+    }
+};
+
+TEST_F(ConsentGateT4Test, T4AlwaysDeniedEvenIfSomehowGranted) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
     config.grant("call_external_api");
     ConsentGate gate(config);
 
