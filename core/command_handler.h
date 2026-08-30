@@ -10,7 +10,7 @@ enum class CommandType {
     ECHO,
     UNKNOWN,
     EXIT,
-    HELP, 
+    HELP,
     ABOUT,
     STATUS
 };
@@ -22,7 +22,6 @@ struct ParsedCommand {
 };
 
 //User input handling functions
-CommandType handleCommand(const std::string& command);
 ParsedCommand parseCommand(const std::string& command);
 
 //Parsing helper functions
@@ -30,9 +29,7 @@ std::string toLower(std::string text);
 CommandType extractCommandType(std::istringstream& stream);
 std::string extractPayload(std::istringstream& stream);
 
-//COMMAND TYPE IMPLEMENTATIONS
-std::string runCMD(ParsedCommand command);
-std::string runEcho(const std::string& payload);
+// Fallback text when no capability matched the parsed command. Kept here (not a capability —
+// CommandType::UNKNOWN is never registered in the CapabilityRegistry) since both the CLI and
+// the gRPC service need this exact string when a dispatch comes back empty.
 std::string runUnknown();
-std::string runHelp(const std::string& payload);
-std::string runAbout();

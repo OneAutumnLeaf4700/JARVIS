@@ -4,9 +4,12 @@ project(JARVIS VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+enable_testing()
+
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(spdlog REQUIRED)
+find_package(GTest REQUIRED)
 
 add_library(
     jarvis_proto
@@ -32,6 +35,7 @@ add_executable(
     core/main.cpp
     core/command_handler.cpp
     core/engine.cpp
+    core/capability_registry.cpp
 )
 
 target_link_libraries(
@@ -64,6 +68,7 @@ add_executable(
     core/grpc_server_main.cpp
     core/command_handler.cpp
     core/engine.cpp
+    core/capability_registry.cpp
     core/ai_client.cpp
     core/jarvis_service.cpp
 )
@@ -75,3 +80,26 @@ target_link_libraries(
     jarvis_ai_proto
     spdlog::spdlog
 )
+
+add_executable(
+    jarvis_tests
+    tests/capability_registry_test.cpp
+    core/capability_registry.cpp
+    core/command_handler.cpp
+    core/engine.cpp
+)
+
+target_include_directories(
+    jarvis_tests
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+)
+
+target_link_libraries(
+    jarvis_tests
+    PRIVATE
+    GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(jarvis_tests)
