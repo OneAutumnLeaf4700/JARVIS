@@ -67,5 +67,13 @@ def main():
         label="unclassified -> UNKNOWN",
     )
 
+    # Only the LLM tier should resolve this — "hows it going" doesn't match any rule pattern
+    # (verified: intent_classifier.classify("hows it going") == ("UNKNOWN", 0.0)) but a
+    # reasonable local model should recognise it as a STATUS-style check-in.
+    call_command(
+        stub, jarvis_pb2.COMMAND_TYPE_UNKNOWN, "hows it going",
+        label="LLM-only -> STATUS (requires live Ollama)",
+    )
+
 if __name__ == "__main__":
     main()
