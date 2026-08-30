@@ -7,5 +7,8 @@ stt:
   confidence_threshold: 0.55  # below this -> clarification path, transcript is discarded
   language: en               # ISO-639-1 code, pinned so Whisper doesn't auto-detect language
                               # per utterance (short clips can otherwise mis-detect wildly)
+tts:
+  enabled: true             # false = voice-in, text-out only — no speaker/voice model needed
+  voice: en_US-lessac-medium  # a Piper voice model name; see README for how to download one
 audio:
   device: null               # null = system default input device; or a sounddevice device index/name

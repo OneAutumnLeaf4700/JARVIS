@@ -40,6 +40,8 @@ def test_load_config_from_explicit_path(tmp_path):
         stt_model_size="small",
         stt_confidence_threshold=0.5,
         stt_language="en",
+        tts_enabled=True,
+        tts_voice="en_US-lessac-medium",
         audio_device=None,
     )
 
@@ -90,3 +92,27 @@ def test_load_config_invalid_mode_raises(tmp_path):
 
     with pytest.raises(ValueError, match="mode"):
         load_config(str(config_file))
+
+
+def test_load_config_tts_defaults_when_omitted(tmp_path):
+    # VALID_YAML (defined earlier in this file) has no tts section at all — an existing
+    # user's voice_config.yaml (written before this field existed) must keep working.
+    config_file = tmp_path / "voice_config.yaml"
+    config_file.write_text(VALID_YAML)
+
+    config = load_config(str(config_file))
+
+    assert config.tts_enabled is True
+    assert config.tts_voice == "en_US-lessac-medium"
+
+
+def test_load_config_tts_is_overridable(tmp_path):
+    config_file = tmp_path / "voice_config.yaml"
+    config_file.write_text(
+        VALID_YAML + "tts:\n  enabled: false\n  voice: en_US-amy-medium\n"
+    )
+
+    config = load_config(str(config_file))
+
+    assert config.tts_enabled is False
+    assert config.tts_voice == "en_US-amy-medium"
