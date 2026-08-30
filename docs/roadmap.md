@@ -127,4 +127,31 @@ output can speak both normal and clarification responses without replacing the t
 and the `voice/` test suite passes. **✅ Landed** — both sub-projects (Voice Input/"Ears" and
 Voice Output/"Voice") are done; Phase 3 is complete.
 
+## Phase 4 — Plugins, Desktop Control & Integrations 🚧 In progress
+
+The plugin manager substrate (enable/disable + consent gate) landed first, ahead of any actual
+plugin, per the project rule that architectural dependency (registry/gate) comes before
+capability sprawl:
+
+1. **`PluginConfig`** (`core/plugin_config.h/.cpp`) — loads `config/capabilities.cfg` (per-name
+   `enabled=true/false`) and `config/consent_grants.cfg` (per-name recorded grants); `grant(name)`
+   persists a new grant back to disk.
+2. **`ConsentGate`** (`core/consent_gate.h/.cpp`) — pure function of `(Capability, PluginConfig)`:
+   T0/T1 always allowed, T2 requires a grant, T3/T4 always denied (enforcement for those tiers is
+   future work, not yet implemented).
+3. **`CapabilityRegistry::setPluginConfig()`** — wires both checks into `dispatch()` ahead of
+   invoking any capability, keeping the registry (not the capability) responsible for the gate
+   (INV-9).
+4. **`jarvis --grant <capability_name>`** (`core/main.cpp`) — the one interactive consent prompt,
+   CLI-only since it's the only surface with a real terminal; unknown/T0-T1/T3-T4 capabilities
+   each get a clear message and exit without prompting, T2 capabilities prompt `[y/n]` and persist
+   via `PluginConfig::grant()`. Both `core/main.cpp`'s normal startup and
+   `core/grpc_server_main.cpp` now load `PluginConfig` and pass it into the registry.
+
+This substrate **ships zero new plugins** — all four builtins stay `T0_READ_ONLY`, so runtime
+behavior is unchanged until a future capability actually declares `T2_SYSTEM_AFFECTING` or above.
+The remaining Phase 4 items (runtime `.so` discovery, system control plugin, desktop interaction,
+file search, reminders, media control, calendar) are still 📋 To do — see
+[`features.md`](features.md).
+
 See [`features.md`](features.md) for the full phase-by-phase checklist beyond this point.
