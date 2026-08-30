@@ -8,8 +8,12 @@ input. Calls a local Ollama server; any failure (unreachable, slow, malformed re
 from __future__ import annotations
 
 import json
+import logging
+import time
 import urllib.error
 import urllib.request
+
+logger = logging.getLogger("jarvis_ai_server.llm_backend")
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "llama3.2:latest"
@@ -48,6 +52,7 @@ def llm_classify(text: str) -> tuple[str, float]:
         method="POST",
     )
 
+    start = time.monotonic()
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             outer = json.loads(response.read().decode("utf-8"))
@@ -55,10 +60,24 @@ def llm_classify(text: str) -> tuple[str, float]:
         intent = parsed["intent"]
         confidence = float(parsed["confidence"])
     except (urllib.error.URLError, TimeoutError, OSError, KeyError, ValueError, TypeError,
-            json.JSONDecodeError):
+            json.JSONDecodeError) as exc:
+        latency_ms = (time.monotonic() - start) * 1000
+        logger.warning(
+            "llm_classify failed: %s: %s latency_ms=%.2f",
+            type(exc).__name__, exc, latency_ms,
+        )
         return "UNKNOWN", 0.0
+
+    latency_ms = (time.monotonic() - start) * 1000
 
     if intent not in KNOWN_INTENTS:
+        logger.warning(
+            "llm_classify returned unrecognised intent=%r latency_ms=%.2f", intent, latency_ms,
+        )
         return "UNKNOWN", 0.0
 
-    return intent, max(0.0, min(1.0, confidence))
+    confidence = max(0.0, min(1.0, confidence))
+    logger.info(
+        "llm_classify intent=%s confidence=%.2f latency_ms=%.2f", intent, confidence, latency_ms,
+    )
+    return intent, confidence

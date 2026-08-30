@@ -3,6 +3,8 @@ the response fields. The LLM tier is mocked by default (autouse fixture) so this
 offline; individual tests override it to prove the LLM-escalation wiring works end-to-end
 through the servicer."""
 
+from unittest.mock import Mock
+
 import pytest
 
 # Importing the server module sets up sys.path for the generated stubs and pulls in ai_pb2.
@@ -54,9 +56,13 @@ class TestServicerEscalatesToLLM:
         assert resp.confidence == pytest.approx(0.7)
         assert "STATUS" in resp.reply
 
-    def test_llm_also_misses_stays_unknown(self, monkeypatch):
-        monkeypatch.setattr(resolver, "llm_classify", lambda text: ("UNKNOWN", 0.0))
+    def test_llm_also_misses_escalates_and_stays_unknown(self, monkeypatch):
+        """Proves a rule-miss genuinely triggers escalation to the LLM tier (not just that the
+        end result happens to be UNKNOWN either way)."""
+        mock_llm = Mock(return_value=("UNKNOWN", 0.0))
+        monkeypatch.setattr(resolver, "llm_classify", mock_llm)
         resp = call("the weather today")
         assert resp.success
         assert resp.intent == "UNKNOWN"
         assert resp.confidence == 0.0
+        mock_llm.assert_called_once_with("the weather today")

@@ -8,7 +8,7 @@ without touching the gRPC server or anything on the C++ side.
 
 from __future__ import annotations
 
-from intent_classifier import classify
+from intent_classifier import CONFIDENCE_THRESHOLD, classify
 from llm_backend import llm_classify
 
 
@@ -19,7 +19,7 @@ def resolve(text: str) -> tuple[str, float, str]:
         return intent, confidence, "rule"
 
     intent, confidence = llm_classify(text)
-    if intent != "UNKNOWN":
+    if intent != "UNKNOWN" and confidence > CONFIDENCE_THRESHOLD:
         return intent, confidence, "llm"
 
     return "UNKNOWN", 0.0, "none"

@@ -30,3 +30,11 @@ class TestResolveEscalatesToLLM:
     def test_rule_miss_llm_also_miss(self, mock_llm):
         mock_llm.return_value = ("UNKNOWN", 0.0)
         assert resolve("the weather today") == ("UNKNOWN", 0.0, "none")
+
+    @patch("resolver.llm_classify")
+    def test_rule_miss_llm_low_confidence_rejected(self, mock_llm):
+        """A non-UNKNOWN LLM guess below the confidence threshold must not pass through as
+        tier="llm" — the wire-level invariant "intent != UNKNOWN implies confidence > 0.5" must
+        hold for the LLM tier too, not just the rule tier."""
+        mock_llm.return_value = ("STATUS", 0.3)
+        assert resolve("hows it going") == ("UNKNOWN", 0.0, "none")
