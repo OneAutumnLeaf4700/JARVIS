@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <sstream>
 
+#include "command_handler.h"
 #include "engine.h"
 
 void CapabilityRegistry::registerCapability(Capability capability) {
@@ -79,8 +80,50 @@ Capability makeStatusCapability() {
     };
 }
 
+Capability makeHelpCapability() {
+    return Capability{
+        "help",
+        CommandType::HELP,
+        "Provides information about available capabilities. Usage: help [command]",
+        PowerTier::T0_READ_ONLY,
+        [](const std::string& payload, ExecutionContext& context) -> std::string {
+            std::ostringstream out;
+
+            if (payload.empty()) {
+                out << "Available commands:\n";
+                for (const auto& [intent, capability] : context.registry.all()) {
+                    out << "  - " << capability.name << ": " << capability.description << "\n";
+                }
+                // exit stays outside the registry (engine-lifecycle control, not a
+                // capability) but is still a real command the user can type — listed here
+                // as one hardcoded line rather than being invented as a fake capability.
+                out << "  - exit: Terminates the JARVIS Core Engine. Usage: exit\n";
+                return out.str();
+            }
+
+            std::string commandName = toLower(payload);
+
+            if (commandName == "exit") {
+                return "exit: Terminates the JARVIS Core Engine. Usage: exit";
+            }
+
+            for (const auto& [intent, capability] : context.registry.all()) {
+                if (capability.name == commandName) {
+                    out << capability.name << ": " << capability.description;
+                    return out.str();
+                }
+            }
+
+            out << "Command not found: " << commandName << "\n";
+            out << "Type 'help' to see all available commands.";
+            return out.str();
+        }
+    };
+}
+
 void registerBuiltinCapabilities(CapabilityRegistry& registry) {
     registry.registerCapability(makeEchoCapability());
     registry.registerCapability(makeAboutCapability());
     registry.registerCapability(makeStatusCapability());
+    registry.registerCapability(makeHelpCapability());
 }

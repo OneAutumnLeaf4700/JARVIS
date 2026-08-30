@@ -38,3 +38,4 @@ void registerBuiltinCapabilities(CapabilityRegistry& registry);
 Capability makeEchoCapability();
 Capability makeAboutCapability();
 Capability makeStatusCapability();
+Capability makeHelpCapability();

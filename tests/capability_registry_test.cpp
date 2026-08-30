@@ -101,3 +101,79 @@ TEST(StatusCapabilityTest, IsPowerTierT0) {
     ASSERT_NE(status, nullptr);
     EXPECT_EQ(status->powerTier, PowerTier::T0_READ_ONLY);
 }
+
+TEST(BuiltinCapabilitiesTest, RegistersExactlyFourExpectedCapabilities) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    EXPECT_EQ(registry.all().size(), 4u);
+    EXPECT_NE(registry.resolve(CommandType::ECHO), nullptr);
+    EXPECT_NE(registry.resolve(CommandType::STATUS), nullptr);
+    EXPECT_NE(registry.resolve(CommandType::ABOUT), nullptr);
+    EXPECT_NE(registry.resolve(CommandType::HELP), nullptr);
+    EXPECT_EQ(registry.resolve(CommandType::UNKNOWN), nullptr);
+}
+
+TEST(HelpCapabilityTest, ListsAllFourBuiltinsWithoutHardcodingThem) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::HELP, "", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("echo"), std::string::npos);
+    EXPECT_NE(result->find("status"), std::string::npos);
+    EXPECT_NE(result->find("about"), std::string::npos);
+    EXPECT_NE(result->find("help"), std::string::npos);
+}
+
+TEST(HelpCapabilityTest, DoesNotListUnknown) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::HELP, "", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->find("- unknown:"), std::string::npos);
+}
+
+TEST(HelpCapabilityTest, ListsExitEvenThoughItIsNotACapability) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::HELP, "", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("exit"), std::string::npos);
+}
+
+TEST(HelpCapabilityTest, SpecificCommandLookupFindsRegisteredCapability) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::HELP, "echo", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("echo"), std::string::npos);
+    EXPECT_NE(result->find("Echoes"), std::string::npos);
+}
+
+TEST(HelpCapabilityTest, SpecificCommandLookupReportsNotFoundForUnregistered) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::HELP, "bananas", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("Command not found"), std::string::npos);
+}
