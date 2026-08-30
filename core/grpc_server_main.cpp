@@ -2,6 +2,7 @@
 #include "capability_registry.h"
 #include "engine.h"
 #include "jarvis_service.h"
+#include "plugin_config.h"
 
 #include <grpcpp/grpcpp.h>
 #include <spdlog/spdlog.h>
@@ -18,6 +19,9 @@ int main() {
 
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
+
+    PluginConfig pluginConfig = PluginConfig::load("config/capabilities.cfg", "config/consent_grants.cfg");
+    registry.setPluginConfig(&pluginConfig);
 
     // Connect to the Python AI server. The channel is lazy — no error if Python isn't up yet.
     JarvisAIClient aiClient(grpc::CreateChannel("localhost:50052", grpc::InsecureChannelCredentials()));
