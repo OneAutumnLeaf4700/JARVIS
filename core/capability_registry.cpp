@@ -25,7 +25,31 @@ const std::unordered_map<CommandType, Capability>& CapabilityRegistry::all() con
     return capabilities_;
 }
 
-// Real body added in Task 2 — declared in capability_registry.h, defined here so this file
-// compiles and links standalone. Empty is correct for this task: no capability exists yet.
-void registerBuiltinCapabilities(CapabilityRegistry& /*registry*/) {
+Capability makeEchoCapability() {
+    return Capability{
+        "echo",
+        CommandType::ECHO,
+        "Echoes the input back to the user. Usage: echo [text]",
+        PowerTier::T0_READ_ONLY,
+        [](const std::string& payload, ExecutionContext& /*context*/) -> std::string {
+            return payload;
+        }
+    };
+}
+
+Capability makeAboutCapability() {
+    return Capability{
+        "about",
+        CommandType::ABOUT,
+        "Provides information about JARVIS. Usage: about",
+        PowerTier::T0_READ_ONLY,
+        [](const std::string& /*payload*/, ExecutionContext& /*context*/) -> std::string {
+            return "JARVIS Core Engine v1.0\nDeveloped by Rayyan.";
+        }
+    };
+}
+
+void registerBuiltinCapabilities(CapabilityRegistry& registry) {
+    registry.registerCapability(makeEchoCapability());
+    registry.registerCapability(makeAboutCapability());
 }

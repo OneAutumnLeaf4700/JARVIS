@@ -33,3 +33,7 @@ class CapabilityRegistry {
 // One explicit call site registers every built-in capability. Adding a new one means writing
 // it and adding one line here — nothing else in the dispatch path changes.
 void registerBuiltinCapabilities(CapabilityRegistry& registry);
+
+// Builtin capability factories — exposed for direct testing (see tests/capability_registry_test.cpp).
+Capability makeEchoCapability();
+Capability makeAboutCapability();
