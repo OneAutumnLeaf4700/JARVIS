@@ -40,8 +40,14 @@ JarvisServiceImpl::~JarvisServiceImpl() {
 
   // Step 3: Dispatch through the registry. For UNKNOWN this always returns std::nullopt
   // (UNKNOWN is never registered) — output starts empty and gets replaced below regardless.
+  // For any other command, std::nullopt means the capability is resolved but currently
+  // disabled (INV-7) — that's a distinct outcome from "command doesn't exist" and must not
+  // silently collapse to an empty, apparently-successful reply.
   ExecutionContext execContext{engine_, registry_};
-  std::string output = registry_.dispatch(internalCmd, payload, execContext).value_or("");
+  std::optional<std::string> dispatchResult = registry_.dispatch(internalCmd, payload, execContext);
+  bool dispatchFailed = !dispatchResult.has_value() && internalCmd != CommandType::UNKNOWN;
+  std::string output = dispatchResult.value_or(
+      dispatchFailed ? "Command is currently unavailable." : "");
 
   // Step 4: UNKNOWN commands are forwarded to the Python AI server. If the AI
   // classifies the text into a known intent with enough confidence, re-dispatch
@@ -58,14 +64,18 @@ JarvisServiceImpl::~JarvisServiceImpl() {
       spdlog::info("ProcessCommand: AI classified intent={} confidence={:.2f}, re-dispatching",
           aiResult.intent, aiResult.confidence);
       internalCmd = classifiedCmd;
-      output = registry_.dispatch(classifiedCmd, payload, execContext).value_or("");
+      dispatchResult = registry_.dispatch(classifiedCmd, payload, execContext);
+      dispatchFailed = !dispatchResult.has_value();
+      output = dispatchResult.value_or("Command is currently unavailable.");
     } else {
       output = aiResult.reply;
     }
   }
 
-  // Success if we got a non-empty reply (even AI errors return a descriptive string).
-  const bool success = (internalCmd != CommandType::UNKNOWN) || !output.empty();
+  // Success if we got a non-empty reply (even AI errors return a descriptive string) — unless
+  // dispatch explicitly failed (resolved-but-disabled capability), which is always a failure
+  // regardless of the fallback message being non-empty.
+  const bool success = !dispatchFailed && ((internalCmd != CommandType::UNKNOWN) || !output.empty());
 
   spdlog::info("ProcessCommand: {}", success ? "OK" : "FAIL");
 
