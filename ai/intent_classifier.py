@@ -10,8 +10,16 @@ import re
 INTENT_PATTERNS: dict[str, list[set[str]]] = {
     "STATUS": [{"status"}, {"uptime"}, {"how", "long", "running"}, {"alive"}],
     "ECHO": [{"echo"}, {"repeat", "after"}, {"say"}],
-    "ABOUT": [{"about"}, {"who", "are", "you"}, {"what", "jarvis"}],
+    "ABOUT": [{"about"}, {"who", "are", "you"}],
 }
+# ABOUT deliberately doesn't include a {"what", "jarvis"}-style pattern. "jarvis" is the
+# assistant's own name/address term — spoken constantly in voice input ("Jarvis, what's...")
+# regardless of intent, unlike typed CLI input which never includes it. Bag-of-words scoring
+# can't tell "what is jarvis" (an identity question) from "Jarvis, what's the weather" (an
+# address term plus an unrelated question) since it ignores word order/adjacency — so any
+# pattern keying on "jarvis" alone false-positives on the latter. A genuine "what is jarvis"
+# question falls through to UNKNOWN here and escalates to the LLM tier, which has the context
+# to actually distinguish the two — the correct division of labor per INV-8.
 
 CONFIDENCE_THRESHOLD = 0.5
 

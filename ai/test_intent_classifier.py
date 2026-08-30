@@ -35,7 +35,6 @@ POSITIVE_CASES = [
     ("say hello", "ECHO"),
     ("about", "ABOUT"),
     ("who are you", "ABOUT"),
-    ("what is jarvis", "ABOUT"),
 ]
 
 
@@ -61,6 +60,30 @@ class TestClassifyUnknown:
         assert classify(text) == ("UNKNOWN", 0.0)
 
 
+class TestAddressTermDoesNotSkewClassification:
+    """Regression: voice input naturally addresses the assistant by name ("Jarvis, ...")
+    in a way typed CLI input never does. Bag-of-words scoring must not let the address term
+    itself act as intent signal — see the comment on ABOUT's patterns in intent_classifier.py."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "hello jarvis what's the weather like today",
+            "jarvis what time is it",
+            "hey jarvis what should I have for lunch",
+        ],
+    )
+    def test_jarvis_address_term_plus_unrelated_question_is_unknown(self, text):
+        assert classify(text) == ("UNKNOWN", 0.0)
+
+    def test_who_are_you_still_fires_about_even_when_addressed(self):
+        # Confirms the fix didn't collaterally break genuine identity questions that use a
+        # pattern unrelated to the word "jarvis" itself.
+        intent, confidence = classify("jarvis who are you")
+        assert intent == "ABOUT"
+        assert confidence >= CONFIDENCE_THRESHOLD
+
+
 class TestConfidence:
     def test_exact_single_word_is_full_confidence(self):
         assert classify("status") == ("STATUS", 1.0)
@@ -81,9 +104,9 @@ class TestConfidence:
         assert confidence == 0.0
 
     def test_threshold_is_exclusive(self):
-        # One generic word ("what") matches 1/2 of {"what", "jarvis"} = 0.5, which must
+        # One word ("repeat") matches 1/2 of ECHO's {"repeat", "after"} = 0.5, which must
         # NOT fire — a two-word pattern needs both words. Keeps the rule path high-precision.
-        assert classify("what") == ("UNKNOWN", 0.0)
+        assert classify("repeat") == ("UNKNOWN", 0.0)
 
 
 class TestFirstWordFastPath:
