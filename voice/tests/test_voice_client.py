@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from voice.stt import TranscriptResult
-from voice.tts import SynthesisResult
 from voice.voice_client import (
     build_request,
     capture_utterance,

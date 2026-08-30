@@ -7,10 +7,11 @@ committed to git — no ML model weight file is checked into this repo (same rea
 running the tests:
 
 ```bash
-.venv/bin/python -m piper.download_voices en_US-lessac-low
+.venv/bin/python -m piper.download_voices --download-dir voice/tests/fixtures en_US-lessac-low
 ```
 
-Run that command from this directory (`voice/tests/fixtures/`), or run it elsewhere and move
-the two produced files (`en_US-lessac-low.onnx`, `en_US-lessac-low.onnx.json`) here. Both files
-are gitignored (`voice/tests/fixtures/*.onnx`, `voice/tests/fixtures/*.onnx.json`) so they stay
-untracked once downloaded.
+Run that command from the repo root — same form as the runtime voice download in `README.md`'s
+Voice (optional) section, just pointed at `voice/tests/fixtures` instead of `voice/tts_models`.
+Both produced files (`en_US-lessac-low.onnx`, `en_US-lessac-low.onnx.json`) are gitignored
+(`voice/tests/fixtures/*.onnx`, `voice/tests/fixtures/*.onnx.json`) so they stay untracked once
+downloaded.

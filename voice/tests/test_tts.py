@@ -8,7 +8,13 @@ from voice.tts import SynthesisResult, TextToSpeech, resolve_voice_model_path
 
 VOICE_MODEL_PATH = str(Path(__file__).parent / "fixtures" / "en_US-lessac-low.onnx")
 
+_MODEL_MISSING_REASON = (
+    f"Piper voice model not downloaded — see "
+    f"{Path(__file__).parent / 'fixtures' / 'README.md'}"
+)
 
+
+@pytest.mark.skipif(not Path(VOICE_MODEL_PATH).is_file(), reason=_MODEL_MISSING_REASON)
 def test_synthesize_returns_nonempty_int16_audio():
     tts = TextToSpeech(VOICE_MODEL_PATH)
 
@@ -20,6 +26,7 @@ def test_synthesize_returns_nonempty_int16_audio():
     assert result.samplerate > 0
 
 
+@pytest.mark.skipif(not Path(VOICE_MODEL_PATH).is_file(), reason=_MODEL_MISSING_REASON)
 def test_speak_calls_default_player_with_synthesis_result():
     tts = TextToSpeech(VOICE_MODEL_PATH)
     mock_player = MagicMock()
@@ -33,6 +40,7 @@ def test_speak_calls_default_player_with_synthesis_result():
     assert called_samplerate > 0
 
 
+@pytest.mark.skipif(not Path(VOICE_MODEL_PATH).is_file(), reason=_MODEL_MISSING_REASON)
 def test_speak_uses_audio_playback_play_when_no_player_given(monkeypatch):
     import voice.tts as tts_module
 

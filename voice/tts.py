@@ -31,7 +31,9 @@ def resolve_voice_model_path(voice_name: str) -> str:
     if not path.is_file():
         raise FileNotFoundError(
             f"Voice model '{voice_name}' not found at '{path}'. "
-            "Download it first — see README.md's Voice (optional) setup section."
+            "Download it first — see README.md's Voice (optional) setup section. "
+            "Or, to skip voice output entirely and keep using voice input/text-only, "
+            "set tts.enabled: false in voice_config.yaml."
         )
     return str(path)
 

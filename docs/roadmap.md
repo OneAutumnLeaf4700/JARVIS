@@ -78,7 +78,7 @@ Replace `print()` in `jarvis_ai_server.py` with `logging` (or `structlog`). Log 
 - **Phase 2.5 — LLM integration:** swap the rule classifier for an Ollama/llama.cpp call behind the same `classify()` signature, so nothing on the C++ side changes. Rules stay the fast/cheap path; the LLM is the fallback.
 - **Phase 3 — Voice I/O and Phase 4 — Plugins:** the intent layer becomes the natural place to register new intents against new plugins.
 
-## Phase 3 — Voice I/O (input) 🚧 In progress
+## Phase 3 — Voice I/O ✅ Complete
 
 Adds a voice-driven front end without touching the existing pipeline: a new `voice/` package
 plugs in *below* the gRPC seam, exactly where `tools/interactive_client.py` plugs in today.
@@ -105,13 +105,26 @@ Because this is entirely a new thin surface reading the mic and calling the exis
 and Orchestrate stay exactly as Phase 2/2.5 left them. `start_jarvis.sh --voice` launches it in
 place of the text client.
 
-Text-to-speech (Voice Output) is a deliberately separate future sub-project — Render-side only,
-orthogonal to this phase's capture/wake-word/STT work — and is not part of Phase 3's scope here.
+Voice output (text-to-speech) landed as a same-phase follow-on, Render-side only and equally
+additive:
 
-**Phase 3 (voice input) lands when:** microphone capture, wake-word detection, and speech-to-text
-all work end-to-end through the existing `ProcessCommand` pipeline, both push-to-talk and
-always-listen modes are usable, low-confidence input is handled gracefully (clarify, don't
-guess), and the `voice/` test suite passes. **Landed** for voice input; text-to-speech remains
-📋 to do as its own follow-on.
+- **`voice/tts.py`** — `TextToSpeech` wraps Piper (local ONNX-based synthesis, no API key);
+  `resolve_voice_model_path()` maps a config voice name (`tts.voice`) to its local model file
+  under `voice/tts_models/`, fail-fast with a clear error (naming the missing voice, the README
+  setup section, and the `tts.enabled: false` escape hatch) if it hasn't been downloaded yet.
+- **`voice/audio_playback.py`** — blocking playback via `sounddevice`, reused pattern from the
+  input side's audio handling.
+- **`voice/config.py`** gained `tts.enabled` / `tts.voice`, and `voice/voice_client.py`'s
+  `dispatch_transcript()` speaks the response alongside — never instead of — the existing
+  terminal output, for both a normal dispatched reply and a low-confidence clarification
+  message. `tts.enabled: false` (the default) skips the one-time Piper model download entirely
+  for text-only use.
+
+**Phase 3 lands when:** microphone capture, wake-word detection, and speech-to-text all work
+end-to-end through the existing `ProcessCommand` pipeline, both push-to-talk and always-listen
+modes are usable, low-confidence input is handled gracefully (clarify, don't guess), voice
+output can speak both normal and clarification responses without replacing the terminal output,
+and the `voice/` test suite passes. **✅ Landed** — both sub-projects (Voice Input/"Ears" and
+Voice Output/"Voice") are done; Phase 3 is complete.
 
 See [`features.md`](features.md) for the full phase-by-phase checklist beyond this point.
