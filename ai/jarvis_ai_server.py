@@ -1,3 +1,5 @@
+import logging
+import time
 from pathlib import Path
 import sys
 
@@ -14,11 +16,23 @@ import ai_pb2_grpc
 
 from intent_classifier import classify
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger("jarvis_ai_server")
+
 
 class JarvisAIServicer(ai_pb2_grpc.JarvisAIServiceServicer):
     def ProcessNaturalLanguage(self, request, context):
+        start = time.monotonic()
         intent, confidence = classify(request.text)
-        print(f"[AI] '{request.text}' -> intent={intent} confidence={confidence:.2f}")
+        latency_ms = (time.monotonic() - start) * 1000
+
+        logger.info(
+            "text=%r intent=%s confidence=%.2f latency_ms=%.2f",
+            request.text, intent, confidence, latency_ms,
+        )
 
         reply = f"[detected intent: {intent}, confidence {confidence:.2f}]"
         return ai_pb2.NaturalLanguageResponse(
@@ -34,7 +48,7 @@ def serve():
     ai_pb2_grpc.add_JarvisAIServiceServicer_to_server(JarvisAIServicer(), server)
     server.add_insecure_port("[::]:50052")
     server.start()
-    print("JARVIS AI server listening on port 50052")
+    logger.info("JARVIS AI server listening on port 50052")
     server.wait_for_termination()
 
 

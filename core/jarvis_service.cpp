@@ -40,14 +40,38 @@ JarvisServiceImpl::~JarvisServiceImpl() {
       jarvis::v1::CommandType_Name(request->command()), payload);
 
   // Step 3: Build and run the command.
-  // STATUS returns "" from runCMD — handled as a special case below.
   ParsedCommand parsedCmd;
   parsedCmd.type = internalCmd;
   parsedCmd.payload = payload;
 
   std::string output = runCMD(parsedCmd);
 
+  // Step 4: UNKNOWN commands are forwarded to the Python AI server. If the AI
+  // classifies the text into a known intent with enough confidence, re-dispatch
+  // as that command instead of just echoing the AI's reply back.
+  if (internalCmd == CommandType::UNKNOWN) {
+    spdlog::info("ProcessCommand: unrecognised command, forwarding to AI layer");
+    AIResult aiResult = aiClient_.ProcessNaturalLanguage(payload);
+
+    constexpr float kConfidenceThreshold = 0.5f;
+    CommandType classifiedCmd = intentToCommandType(aiResult.intent);
+
+    if (aiResult.success && classifiedCmd != CommandType::UNKNOWN &&
+        aiResult.confidence >= kConfidenceThreshold) {
+      spdlog::info("ProcessCommand: AI classified intent={} confidence={:.2f}, re-dispatching",
+          aiResult.intent, aiResult.confidence);
+      internalCmd = classifiedCmd;
+      ParsedCommand reparsedCmd;
+      reparsedCmd.type = classifiedCmd;
+      reparsedCmd.payload = payload;
+      output = runCMD(reparsedCmd);
+    } else {
+      output = aiResult.reply;
+    }
+  }
+
   // STATUS is a special case: its data lives in the Engine, not the command handler.
+  // Runs after the AI re-dispatch above so a classified STATUS intent also gets it.
   if (internalCmd == CommandType::STATUS) {
     StatusInfo info = engine_.getStatusInfo();
 
@@ -63,13 +87,6 @@ JarvisServiceImpl::~JarvisServiceImpl() {
         << std::setw(2)      << seconds << "\n";
     out << "Last command: " << info.lastCommand;
     output = out.str();
-  }
-
-  // Step 4: UNKNOWN commands are forwarded to the Python AI server.
-  // The payload contains the full natural language text the user sent.
-  if (internalCmd == CommandType::UNKNOWN) {
-    spdlog::info("ProcessCommand: unrecognised command, forwarding to AI layer");
-    output = aiClient_.ProcessNaturalLanguage(payload);
   }
 
   // Success if we got a non-empty reply (even AI errors return a descriptive string).
@@ -134,6 +151,17 @@ jarvis::v1::CommandType JarvisServiceImpl::internalCommandToProto(CommandType in
     default:
       return jarvis::v1::COMMAND_TYPE_UNSPECIFIED;
   }
+}
+
+// Helper: Convert an AI-classified intent string to internal CommandType.
+// Why: the AI layer speaks intent names (INV-8's classify() contract); the
+// dispatcher speaks CommandType. This is the seam between the two, matching
+// the four intents ai/intent_classifier.py currently produces.
+CommandType JarvisServiceImpl::intentToCommandType(const std::string& intent) {
+  if (intent == "STATUS") return CommandType::STATUS;
+  if (intent == "ECHO") return CommandType::ECHO;
+  if (intent == "ABOUT") return CommandType::ABOUT;
+  return CommandType::UNKNOWN;
 }
 
 // Helper: Convert result bool to proto ErrorCode enum.

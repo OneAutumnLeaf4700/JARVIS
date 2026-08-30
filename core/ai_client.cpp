@@ -4,7 +4,7 @@
 JarvisAIClient::JarvisAIClient(std::shared_ptr<grpc::Channel> channel)
     : stub_(jarvis::ai::v1::JarvisAIService::NewStub(channel)) {}
 
-std::string JarvisAIClient::ProcessNaturalLanguage(const std::string& text) {
+AIResult JarvisAIClient::ProcessNaturalLanguage(const std::string& text) {
   jarvis::ai::v1::NaturalLanguageRequest request;
   request.set_text(text);
 
@@ -20,14 +20,14 @@ std::string JarvisAIClient::ProcessNaturalLanguage(const std::string& text) {
 
   if (!status.ok()) {
     spdlog::warn("AIClient: call failed — {} (code {})", status.error_message(), static_cast<int>(status.error_code()));
-    return "[AI unavailable: " + status.error_message() + "]";
+    return AIResult{false, "[AI unavailable: " + status.error_message() + "]", "UNKNOWN", 0.0f};
   }
 
   if (!response.success()) {
     spdlog::warn("AIClient: AI server returned error: {}", response.error());
-    return "[AI error: " + response.error() + "]";
+    return AIResult{false, "[AI error: " + response.error() + "]", "UNKNOWN", 0.0f};
   }
 
-  spdlog::info("AIClient: reply='{}'", response.reply());
-  return response.reply();
+  spdlog::info("AIClient: reply='{}' intent={} confidence={:.2f}", response.reply(), response.intent(), response.confidence());
+  return AIResult{true, response.reply(), response.intent(), response.confidence()};
 }

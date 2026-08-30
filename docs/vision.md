@@ -47,6 +47,20 @@ These are the "next tier up from CLI" capabilities — closer to reality than th
 
 ---
 
+## Understanding-tier future idea: tiered model escalation
+
+Not scoped, not scheduled — a shape worth keeping in mind for when the LLM-backed Understanding
+tier gets designed (`roadmap.md` Phase 2.5+): route input through a very small/fast model first
+for near-instant recognition, and only escalate to a larger model when the request looks complex.
+The existing rule-based classifier already gives the cheapest tier for the easiest prompts
+("power on", "shutdown", "sleep", etc.) — this would slot a small model in *between* that rule
+layer and the full LLM, rather than replacing either. Same shape as INV-8 (tiered intelligence,
+stable interface): swapping/adding a tier behind `classify()`/`resolve()` should change nothing
+upstream or downstream. Needs its own design pass (what counts as "complex enough to escalate,"
+which small model, latency budget) before it's more than this note.
+
+---
+
 ## Open questions to resolve during the architecture pass
 
 - How does the natural-language → service mapping registry actually get defined? (static config, plugin self-registration, LLM-generated mapping suggestions?)

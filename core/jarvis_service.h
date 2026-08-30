@@ -43,4 +43,9 @@ class JarvisServiceImpl final : public jarvis::v1::JarvisService::Service {
   // Helper method to convert internal error/result into a proto ErrorCode enum.
   // Why: error classification should be transport-agnostic on the proto side.
   jarvis::v1::ErrorCode resultToProtoErrorCode(bool success);
+
+  // Helper method to map an AI-classified intent string (e.g. "STATUS") to the
+  // internal CommandType it corresponds to. Returns CommandType::UNKNOWN for
+  // "UNKNOWN" or any unrecognised intent string.
+  CommandType intentToCommandType(const std::string& intent);
 };

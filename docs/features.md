@@ -27,19 +27,27 @@ Core engine, gRPC service boundary, and C++↔Python round-trip are all working 
 
 ---
 
-## Phase 2 — Intelligence Layer 🚧 In progress
+## Phase 2 — Intelligence Layer ✅ Complete
 
-The Python AI server currently just echoes input back (`[AI echo] <text>`) — this phase replaces that with real classification and, later, an LLM.
+The Python AI server started as a placeholder echo (`[AI echo] <text>`) — this phase replaced that with real rule-based classification, and taught the C++ side to act on it.
 
 Full step-by-step plan: [`roadmap.md`](roadmap.md#phase-2--intelligence-layer).
 
 - ✅ Rule-based intent classifier (`ai/intent_classifier.py`) — keyword/token-set matching over `STATUS` / `ECHO` / `ABOUT` / `UNKNOWN`, with a 24-case pytest suite. Live in the AI server (see next two items).
 - ✅ Extend `ai.proto` with `intent` + `confidence` fields on `NaturalLanguageResponse`
 - ✅ Wire classifier into `jarvis_ai_server.py` — natural-language input now returns a classified `(intent, confidence)` instead of an echo; verified end-to-end over the full C++→Python gRPC path
-- 📋 C++ side re-dispatches on classified intent instead of just forwarding AI reply text
-- 📋 Smoke test coverage for classified vs. unclassified inputs
-- 📋 Structured logging on the Python side (replace `print()`)
+- ✅ C++ side re-dispatches on classified intent instead of just forwarding AI reply text — `JarvisAIClient::ProcessNaturalLanguage` now returns an `AIResult{reply, intent, confidence}`; `jarvis_service.cpp` re-runs `runCMD()` under the classified `CommandType` when confidence ≥ 0.5
+- ✅ Smoke test coverage for classified vs. unclassified inputs — `tools/grpc_smoke_test.py` covers STATUS/ECHO/ABOUT phrasings plus a genuine UNKNOWN fallback
+- ✅ Structured logging on the Python side (replace `print()`) — `jarvis_ai_server.py` uses `logging` with text/intent/confidence/latency per request
+
+---
+
+## Phase 2.5 — LLM-Backed Understanding 📋 To do
+
+Grows the Understanding tier beyond the rule classifier without changing its stable interface (INV-8).
+
 - 📋 **Local LLM integration (Ollama / llama.cpp)** — swap or fall back from the rule classifier once the `classify()` interface is stable. Same signature, different backend — rules stay the fast/cheap path, LLM is the fallback for anything the rules miss.
+- 📋 **Small-model fast-path escalation (future idea, not scoped)** — a very small/fast model between the rule layer and the full LLM for near-instant recognition, escalating to the bigger model only for complex requests. Rules keep handling the easiest prompts (power on/shutdown/sleep). See [`vision.md`](vision.md#understanding-tier-future-idea-tiered-model-escalation).
 - 📋 **Multi-turn context** — per-session conversation history on the Python side so follow-ups resolve correctly. Depends on LLM integration + a session id propagated from C++.
 - 📋 **Safety guardrails** — confirmation prompts before destructive intents (delete file, shut down, etc.), allowlists of safe operations. Real teeth on this depend on Phase 3 having a plugin that can actually do something destructive.
 

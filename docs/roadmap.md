@@ -25,7 +25,7 @@ Existing command-parsing, dispatch-map, and engine-state-tracking concepts all s
 
 ---
 
-## Phase 2 — Intelligence Layer 🚧 In progress
+## Phase 2 — Intelligence Layer ✅ Complete
 
 Phase 1 built the pipes. Phase 2 fills the Python AI layer with actual intelligence — starting from a deterministic rule-based classifier and growing toward LLM-backed reasoning. Each step below has a concrete task list; do them in order, each one builds on the last.
 
@@ -72,7 +72,7 @@ Add cases to `tools/grpc_smoke_test.py` covering classified inputs (STATUS/ECHO/
 ### Step 8 — Observability for the AI layer
 Replace `print()` in `jarvis_ai_server.py` with `logging` (or `structlog`). Log timestamp, request text, intent, confidence, latency. Optionally add a request-id field to `NaturalLanguageRequest` to correlate C++ and Python logs for the same call.
 
-**Phase 2 lands when:** the AI server classifies into the four current intents, C++ re-dispatches on classified intent, the smoke test covers both paths, and Python logs are structured.
+**Phase 2 lands when:** the AI server classifies into the four current intents, C++ re-dispatches on classified intent, the smoke test covers both paths, and Python logs are structured. **✅ Landed** — `core/ai_client.{h,cpp}` returns a structured `AIResult`, `core/jarvis_service.cpp` re-dispatches through `runCMD()` on confidence ≥ 0.5, `tools/grpc_smoke_test.py` covers classified (STATUS/ECHO/ABOUT) and unclassified (UNKNOWN) inputs, and `ai/jarvis_ai_server.py` logs via `logging` instead of `print()`. Verified end-to-end: all three commands round-trip through the classifier and re-dispatch to the correct `command_type`.
 
 ### What Phase 2 unlocks next
 - **Phase 2.5 — LLM integration:** swap the rule classifier for an Ollama/llama.cpp call behind the same `classify()` signature, so nothing on the C++ side changes. Rules stay the fast/cheap path; the LLM is the fallback.
