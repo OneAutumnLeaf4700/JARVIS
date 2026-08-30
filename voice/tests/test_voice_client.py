@@ -1,9 +1,15 @@
+import os
 from unittest.mock import MagicMock
 
 import numpy as np
 
 from voice.stt import TranscriptResult
-from voice.voice_client import build_request, capture_utterance, dispatch_transcript
+from voice.voice_client import (
+    build_request,
+    capture_utterance,
+    capture_utterance_bounded,
+    dispatch_transcript,
+)
 
 
 def test_build_request_known_command_routes_directly():
@@ -75,6 +81,53 @@ def test_capture_utterance_respects_max_blocks():
     frame_sequence = [loud] * 1000  # never goes silent
 
     result = capture_utterance(iter(frame_sequence), max_blocks=10)
+
+    assert len(result) == 10 * 1280
+
+
+def test_capture_utterance_bounded_stops_on_second_enter():
+    read_fd, write_fd = os.pipe()
+    read_file = os.fdopen(read_fd, "r")
+    loud = np.full(1280, 5000, dtype=np.int16)
+
+    def frame_gen():
+        for i in range(10):
+            yield loud
+            if i == 2:
+                # Simulate the user pressing Enter again after the 3rd frame.
+                os.write(write_fd, b"\n")
+
+    result = capture_utterance_bounded(frame_gen(), stdin=read_file)
+    os.close(write_fd)
+    read_file.close()
+
+    # Should stop shortly after frame index 2 (once select() sees the pipe is ready), not
+    # consume all 10 frames — proves the second-Enter signal actually stops capture.
+    assert 3 * 1280 <= len(result) < 10 * 1280
+
+
+def test_capture_utterance_bounded_returns_everything_if_iterator_ends_first():
+    read_fd, write_fd = os.pipe()
+    read_file = os.fdopen(read_fd, "r")
+    loud = np.full(1280, 5000, dtype=np.int16)
+    frame_sequence = [loud] * 5  # never signals on the pipe
+
+    result = capture_utterance_bounded(iter(frame_sequence), stdin=read_file)
+    os.close(write_fd)
+    read_file.close()
+
+    assert len(result) == 5 * 1280
+
+
+def test_capture_utterance_bounded_respects_max_blocks_safety_cap():
+    read_fd, write_fd = os.pipe()
+    read_file = os.fdopen(read_fd, "r")
+    loud = np.full(1280, 5000, dtype=np.int16)
+    frame_sequence = [loud] * 1000  # never signals, would otherwise run forever
+
+    result = capture_utterance_bounded(iter(frame_sequence), stdin=read_file, max_blocks=10)
+    os.close(write_fd)
+    read_file.close()
 
     assert len(result) == 10 * 1280
 

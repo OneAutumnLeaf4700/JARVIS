@@ -9,6 +9,7 @@ pipeline - this file adds no business logic of its own (INV-3).
 import argparse
 from pathlib import Path
 import re
+import select
 import sys
 
 import grpc
@@ -97,6 +98,38 @@ def capture_utterance(
     return np.concatenate(buffer)
 
 
+def capture_utterance_bounded(
+    frame_iter,
+    stdin=None,
+    max_blocks: int = 750,
+) -> np.ndarray:
+    """Push-to-talk capture bracketed by two explicit Enter presses: the caller has already
+    consumed the first (the "start" signal) before calling this; this buffers frames until a
+    line becomes available on stdin (the "stop" signal) or frame_iter is exhausted, whichever
+    comes first. No silence detection — the user controls the boundary directly, which is what
+    push-to-talk asked for after capture_utterance's silence-based heuristic proved fragile
+    against real speech. max_blocks is a safety net only (default ~60s at 1280 samples/16kHz),
+    not expected to trigger in normal use — it guards against a forgotten stop press."""
+    if stdin is None:
+        stdin = sys.stdin
+
+    buffer = []
+    for frame in frame_iter:
+        buffer.append(frame)
+
+        if len(buffer) >= max_blocks:
+            break
+
+        ready, _, _ = select.select([stdin], [], [], 0)
+        if ready:
+            stdin.readline()
+            break
+
+    if not buffer:
+        return np.array([], dtype=np.int16)
+    return np.concatenate(buffer)
+
+
 def dispatch_transcript(
     result: TranscriptResult,
     stub,
@@ -127,7 +160,7 @@ def dispatch_transcript(
 
 
 def _run_push_to_talk(stub, stt: SpeechToText, config) -> None:
-    print("Push-to-talk mode. Press Enter, then speak. Ctrl+C to quit.\n")
+    print("Push-to-talk mode. Press Enter, then speak. Press Enter again to stop. Ctrl+C to quit.\n")
     while True:
         try:
             input("Press Enter to speak > ")
@@ -135,7 +168,8 @@ def _run_push_to_talk(stub, stt: SpeechToText, config) -> None:
             print()
             return
 
-        utterance = capture_utterance(frames(device=config.audio_device))
+        print("  (recording — press Enter to stop)")
+        utterance = capture_utterance_bounded(frames(device=config.audio_device))
         result = stt.transcribe(utterance)
         dispatch_transcript(result, stub, config.stt_confidence_threshold)
 
