@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "command_handler.h"
+#include "consent_gate.h"
 #include "engine.h"
 
 static const std::string kExitDescription =
@@ -11,6 +12,10 @@ static const std::string kExitDescription =
 
 void CapabilityRegistry::registerCapability(Capability capability) {
     capabilities_[capability.intent] = std::move(capability);
+}
+
+void CapabilityRegistry::setPluginConfig(const PluginConfig* pluginConfig) {
+    pluginConfig_ = pluginConfig;
 }
 
 const Capability* CapabilityRegistry::resolve(CommandType intent) const {
@@ -27,6 +32,19 @@ std::optional<std::string> CapabilityRegistry::dispatch(
     if (!capability) {
         return std::nullopt;
     }
+
+    if (pluginConfig_ != nullptr) {
+        if (!pluginConfig_->isEnabled(capability->name)) {
+            return std::nullopt;
+        }
+
+        ConsentGate gate(*pluginConfig_);
+        ConsentResult consent = gate.check(*capability);
+        if (!consent.allowed) {
+            return consent.reason;
+        }
+    }
+
     return capability->execute(payload, context);
 }
 
