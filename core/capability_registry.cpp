@@ -6,6 +6,9 @@
 #include "command_handler.h"
 #include "engine.h"
 
+static const std::string kExitDescription =
+    "Terminates the JARVIS Core Engine. Usage: exit";
+
 void CapabilityRegistry::registerCapability(Capability capability) {
     capabilities_[capability.intent] = std::move(capability);
 }
@@ -97,14 +100,14 @@ Capability makeHelpCapability() {
                 // exit stays outside the registry (engine-lifecycle control, not a
                 // capability) but is still a real command the user can type — listed here
                 // as one hardcoded line rather than being invented as a fake capability.
-                out << "  - exit: Terminates the JARVIS Core Engine. Usage: exit\n";
+                out << "  - exit: " << kExitDescription << "\n";
                 return out.str();
             }
 
             std::string commandName = toLower(payload);
 
             if (commandName == "exit") {
-                return "exit: Terminates the JARVIS Core Engine. Usage: exit";
+                return "exit: " + kExitDescription;
             }
 
             for (const auto& [intent, capability] : context.registry.all()) {
