@@ -135,10 +135,18 @@ def dispatch_transcript(
     stub,
     stt_confidence_threshold: float = 0.55,
     ai_confidence_threshold: float = 0.5,
+    verbose: bool = False,
 ) -> None:
     """Implements the two-signal low-confidence handling from the design spec §6: low STT
     confidence skips the round-trip entirely; low AI/intent confidence (parsed out of the
-    existing response message) prints a clarification after the round-trip completes."""
+    existing response message) prints a clarification after the round-trip completes.
+
+    verbose (--log): always echoes exactly what STT heard and its confidence, before the
+    threshold decision, regardless of whether the utterance ends up dispatched or rejected —
+    a debugging aid for calibrating stt.confidence_threshold / mic choice against real speech."""
+    if verbose:
+        print(f"  heard: '{result.text}' (confidence {result.confidence:.2f})")
+
     if result.confidence < stt_confidence_threshold:
         print(f"  Didn't catch that clearly — heard: '{result.text}'. Try again?\n")
         return
@@ -159,7 +167,7 @@ def dispatch_transcript(
         print("  Not sure I understood — could you rephrase that?\n")
 
 
-def _run_push_to_talk(stub, stt: SpeechToText, config) -> None:
+def _run_push_to_talk(stub, stt: SpeechToText, config, verbose: bool = False) -> None:
     print("Push-to-talk mode. Press Enter, then speak. Press Enter again to stop. Ctrl+C to quit.\n")
     while True:
         try:
@@ -171,10 +179,12 @@ def _run_push_to_talk(stub, stt: SpeechToText, config) -> None:
         print("  (recording — press Enter to stop)")
         utterance = capture_utterance_bounded(frames(device=config.audio_device))
         result = stt.transcribe(utterance)
-        dispatch_transcript(result, stub, config.stt_confidence_threshold)
+        dispatch_transcript(result, stub, config.stt_confidence_threshold, verbose=verbose)
 
 
-def _run_always_listen(stub, detector: WakeWordDetector, stt: SpeechToText, config) -> None:
+def _run_always_listen(
+    stub, detector: WakeWordDetector, stt: SpeechToText, config, verbose: bool = False
+) -> None:
     print("Always-listen mode. Say the wake word, then speak. Ctrl+C to quit.\n")
     frame_iter = frames(device=config.audio_device)
     try:
@@ -185,7 +195,7 @@ def _run_always_listen(stub, detector: WakeWordDetector, stt: SpeechToText, conf
             print("  (wake word detected — listening...)")
             utterance = capture_utterance(frame_iter)
             result = stt.transcribe(utterance)
-            dispatch_transcript(result, stub, config.stt_confidence_threshold)
+            dispatch_transcript(result, stub, config.stt_confidence_threshold, verbose=verbose)
             detector.reset()
     except KeyboardInterrupt:
         print()
@@ -195,6 +205,13 @@ def _run_always_listen(stub, detector: WakeWordDetector, stt: SpeechToText, conf
 def main() -> None:
     parser = argparse.ArgumentParser(description="JARVIS voice client")
     parser.add_argument("--config", default=None, help="Path to voice_config.yaml")
+    parser.add_argument(
+        "--log",
+        action="store_true",
+        help="Echo every transcript STT hears, with its confidence, before the threshold "
+        "decision — useful for calibrating stt.confidence_threshold or diagnosing "
+        "inconsistent recognition.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -204,10 +221,10 @@ def main() -> None:
     stt = SpeechToText(model_size=config.stt_model_size)
 
     if config.mode == "push_to_talk":
-        _run_push_to_talk(stub, stt, config)
+        _run_push_to_talk(stub, stt, config, verbose=args.log)
     else:
         detector = WakeWordDetector(sensitivity=config.wake_word_sensitivity)
-        _run_always_listen(stub, detector, stt, config)
+        _run_always_listen(stub, detector, stt, config, verbose=args.log)
 
 
 if __name__ == "__main__":

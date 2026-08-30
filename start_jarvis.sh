@@ -3,25 +3,32 @@
 # Python AI server, the C++ gRPC server, then drops you into an interactive client that talks
 # to the real pipeline (known commands + natural language + LLM escalation).
 #
-# Usage: ./start_jarvis.sh [--voice]
+# Usage: ./start_jarvis.sh [--voice] [-- <extra args forwarded to voice_client.py>]
 #   --voice   Launch the voice client (python3 -m voice.voice_client) instead of the text client.
+#             Any other flag (e.g. --log, --config) is forwarded as-is to voice_client.py — see
+#             `python3 -m voice.voice_client --help` for what it accepts.
 # Ctrl+C or 'exit' at the prompt stops the interactive client and shuts down both servers.
 
 set -euo pipefail
 
 VOICE=0
+VOICE_ARGS=()
 for arg in "$@"; do
     case "$arg" in
         --voice)
             VOICE=1
             ;;
         *)
-            echo "Unknown argument: $arg" >&2
-            echo "Usage: $0 [--voice]" >&2
-            exit 1
+            VOICE_ARGS+=("$arg")
             ;;
     esac
 done
+
+if [[ "$VOICE" -eq 0 ]] && [[ "${#VOICE_ARGS[@]}" -gt 0 ]]; then
+    echo "Unknown argument(s) without --voice: ${VOICE_ARGS[*]}" >&2
+    echo "Usage: $0 [--voice] [extra voice_client.py args]" >&2
+    exit 1
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
@@ -117,7 +124,7 @@ if [[ "$VOICE" -eq 1 ]]; then
     echo "== Both servers running. Launching voice client. =="
     echo
 
-    "$PYTHON" -m voice.voice_client
+    "$PYTHON" -m voice.voice_client "${VOICE_ARGS[@]}"
 else
     echo "== Both servers running. Launching interactive client. =="
     echo

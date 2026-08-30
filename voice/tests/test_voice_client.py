@@ -157,6 +157,49 @@ def test_dispatch_transcript_calls_process_command_above_threshold():
     stub.ProcessCommand.assert_called_once()
 
 
+def test_dispatch_transcript_verbose_logs_heard_text_above_threshold(capsys):
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_STATUS, message="Engine: running"
+    )
+    result = TranscriptResult(text="status", confidence=0.87)
+
+    dispatch_transcript(result, stub, stt_confidence_threshold=0.55, verbose=True)
+
+    captured = capsys.readouterr()
+    assert "heard: 'status'" in captured.out
+    assert "0.87" in captured.out
+
+
+def test_dispatch_transcript_verbose_logs_heard_text_below_threshold(capsys):
+    stub = MagicMock()
+    result = TranscriptResult(text="mumble", confidence=0.2)
+
+    dispatch_transcript(result, stub, stt_confidence_threshold=0.55, verbose=True)
+
+    stub.ProcessCommand.assert_not_called()
+    captured = capsys.readouterr()
+    assert "heard: 'mumble'" in captured.out
+    assert "0.20" in captured.out
+
+
+def test_dispatch_transcript_not_verbose_omits_heard_line_above_threshold(capsys):
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_STATUS, message="Engine: running"
+    )
+    result = TranscriptResult(text="status", confidence=0.87)
+
+    dispatch_transcript(result, stub, stt_confidence_threshold=0.55, verbose=False)
+
+    captured = capsys.readouterr()
+    assert "heard:" not in captured.out
+
+
 def test_dispatch_transcript_prints_clarification_on_low_ai_confidence(capsys):
     import jarvis_pb2
 
