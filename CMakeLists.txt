@@ -35,6 +35,7 @@ add_executable(
     core/main.cpp
     core/command_handler.cpp
     core/engine.cpp
+    core/capability_registry.cpp
 )
 
 target_link_libraries(

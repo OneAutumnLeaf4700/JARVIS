@@ -1,11 +1,9 @@
 #include "command_handler.h"
 
-#include <iostream>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
-#include <functional>
 
 //COMMAND MAPPING
 
@@ -14,33 +12,10 @@
 static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
     {"echo", CommandType::ECHO},
     {"unknown", CommandType::UNKNOWN},
-    {"exit", CommandType::EXIT}, 
-    {"help", CommandType::HELP}, 
+    {"exit", CommandType::EXIT},
+    {"help", CommandType::HELP},
     {"about", CommandType::ABOUT},
     {"status", CommandType::STATUS}
-};
-
-//CommandType -> Execution function mapping
-//Maps CommandType to their corresponding execution functions
-static const std::unordered_map<CommandType, std::function<std::string(const std::string&)>> COMMAND_DISPATCH = {
-    {CommandType::ECHO, runEcho},
-    {CommandType::UNKNOWN, [](const std::string&) { return runUnknown(); }},
-    {CommandType::EXIT, [](const std::string&) { return std::string(""); }}, // THIS IS INTENTIONAL. EXIT IS HANDLED IN ENGINE LAYER.
-    {CommandType::HELP, runHelp},
-    {CommandType::ABOUT, [](const std::string&) { return runAbout(); }},
-    {CommandType::STATUS, [](const std::string&) { return std::string(""); }} // THIS IS INTENTIONAL. STATUS IS HANDLED IN ENGINE LAYER.
-
-};
-
-//CommandType -> Description mapping for help command
-//Maps CommandType to their corresponding descriptions for help command
-static const std::unordered_map<CommandType, std::string> COMMAND_DESCRIPTIONS = {
-    {CommandType::ECHO, "Echoes the input back to the user. Usage: echo [text]"},
-    {CommandType::UNKNOWN, "Default response for unrecognized commands."},
-    {CommandType::EXIT, "Terminates the JARVIS Core Engine. Usage: exit"},
-    {CommandType::HELP, "Provides information about available commands. Usage: help [command]"},
-    {CommandType::ABOUT, "Provides information about JARVIS. Usage: about"},
-    {CommandType::STATUS, "Shows engine state, uptime, and last command. Usage: status"}
 };
 
 //PARSING HELPER FUNCTIONS
@@ -80,7 +55,7 @@ ParsedCommand parseCommand(const std::string& input) {
     ParsedCommand result{CommandType::UNKNOWN, ""};
 
     //Remove leading and trailing whitespace
-    std::string cleaned = trim(input); 
+    std::string cleaned = trim(input);
 
     if (cleaned.empty()) { // If the cleaned input is empty, return the default unknown command
         return result;
@@ -95,7 +70,7 @@ ParsedCommand parseCommand(const std::string& input) {
     //Part 2: Payload extraction
     //Extract rest of the input as payload
     std::string payload = extractPayload(stream);
-    
+
     //Build result object
     result.type = commandType;
     result.payload = payload;
@@ -103,7 +78,7 @@ ParsedCommand parseCommand(const std::string& input) {
     return result;
 }
 
-//Extract command type 
+//Extract command type
 CommandType extractCommandType(std::istringstream& stream) {
     std::string command;
     stream >> command;
@@ -116,7 +91,7 @@ CommandType extractCommandType(std::istringstream& stream) {
         //Command found in map, return the corresponding CommandType
         return it->second;
     }
-    
+
     //Command not found, return UNKNOWN
     return CommandType::UNKNOWN;
 }
@@ -128,104 +103,7 @@ std::string extractPayload(std::istringstream& stream) {
     return trim(payload);
 }
 
-//Handle the user input command, print the output, and return the command type
-CommandType handleCommand(const std::string& input) {
-    //Command must be parsed to determine the appropriate action
-
-    //Parse the command and run
-    ParsedCommand parsed = parseCommand(input);
-    std::string output = runCMD(parsed);
-
-    //Print output to console (CLI path — gRPC path uses runCMD directly)
-    if (!output.empty()) {
-        std::cout << output << std::endl;
-    }
-
-    return parsed.type; //Return the command type for any additional handling in the engine loop
-}
-
-//Run the command based on its type and return the result as a string
-std::string runCMD(ParsedCommand command) {
-    //Split object into type and payload
-    CommandType cmdType = command.type;
-    std::string payload = command.payload;
-
-    //Execute the command based on its type
-    auto it = COMMAND_DISPATCH.find(cmdType);
-    if (it != COMMAND_DISPATCH.end()) {
-        //Command type found in dispatch map, execute the corresponding function
-        return it->second(payload);
-    } else {
-        //Command type not found, run unknown command handler
-        return runUnknown();
-    }
-}
-
-//COMMAND TYPE IMPLEMENTATIONS
-
-//Echo command implementation
-std::string runEcho(const std::string& payload) {
-    return payload;
-}
-
-//Unknown command implementation
+//Fallback text when no capability matched
 std::string runUnknown() {
     return "Command not recognised. Please try again.";
-}
-
-//Help command implementation
-std::string runHelp(const std::string& payload) {
-    //Help must list all commands available to jarvis.
-    //Will do this by iterating through command map and printing out keys in string format, alongside description of each.
-
-    std::ostringstream out;
-
-    //Payload must be parsed to determine whether user wants to see all commands or get help on a specific command
-    if (payload.empty()) {
-        //No payload, list all commands
-        out << "Available commands:\n";
-
-        //Iterate through COMMAND_MAP to get each command name (key) and its CommandType (value).
-        //For each entry, look up the description in COMMAND_DESCRIPTIONS using the CommandType.
-        //Each map entry is a std::pair — .first is the key, .second is the value.
-        for (const auto& [name, type] : COMMAND_MAP) {
-            auto it = COMMAND_DESCRIPTIONS.find(type);
-            if (it != COMMAND_DESCRIPTIONS.end()) {
-                out << "  - " << name << ": " << it->second << "\n";
-            }
-            else {
-                out << "  - " << name << ": No description available.\n";
-            }
-        }
-    }
-    else {
-        //Payload is not empty: user wants help for a specific command
-        std::string commandName = toLower(payload);
-
-        //Look up the command in COMMAND_MAP
-        auto it = COMMAND_MAP.find(commandName);
-
-        if (it != COMMAND_MAP.end()) {
-            //Command found, look up its description
-            CommandType cmdType = it->second;
-            auto descIt = COMMAND_DESCRIPTIONS.find(cmdType);
-
-            if (descIt != COMMAND_DESCRIPTIONS.end()) {
-                out << commandName << ": " << descIt->second;
-            } else {
-                out << "No description available for command: " << commandName;
-            }
-        } else {
-            //Command not found
-            out << "Command not found: " << commandName << "\n";
-            out << "Type 'help' to see all available commands.";
-        }
-    }
-
-    return out.str();
-}
-
-//About command implementation
-std::string runAbout() {
-    return "JARVIS Core Engine v1.0\nDeveloped by Rayyan.";
 }

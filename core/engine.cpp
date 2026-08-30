@@ -1,9 +1,12 @@
 #include "engine.h"
+#include "capability.h"
+#include "capability_registry.h"
 #include "command_handler.h"
 
+#include <cctype>
 #include <chrono>
-#include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -15,7 +18,7 @@ Engine::Engine() {
 }
 
 //Engine entry point
-void Engine::run() {
+void Engine::run(CapabilityRegistry& registry) {
     std::cout << "JARVIS Core Engine starting..." << std::endl;
 
     std::string input;
@@ -24,24 +27,31 @@ void Engine::run() {
         std::cout << ">";
         std::getline(std::cin, input);
 
-        CommandType cmdType = handleCommand(input);
+        ParsedCommand parsed = parseCommand(input);
 
         //Update last command tracker to current command
-        if (cmdType != CommandType::STATUS) {
+        if (parsed.type != CommandType::STATUS) {
             std::string commandName = extractCommandName(input);
             if (!commandName.empty()) {
                 lastCommand = commandName;
             }
         }
 
-        //Engine layer handles status
-        if (cmdType == CommandType::STATUS) {
-            printStatus();
+        //Engine layer handles termination — exit stays outside the registry
+        if (parsed.type == CommandType::EXIT) {
+            terminate();
+            continue;
         }
 
-        //Engine layer handles termination
-        if (cmdType == CommandType::EXIT) {
-            terminate();
+        ExecutionContext context{*this, registry};
+        std::optional<std::string> output = registry.dispatch(parsed.type, parsed.payload, context);
+
+        if (output) {
+            if (!output->empty()) {
+                std::cout << *output << std::endl;
+            }
+        } else {
+            std::cout << runUnknown() << std::endl;
         }
     }
 }
@@ -50,23 +60,6 @@ void Engine::run() {
 void Engine::terminate() {
     std::cout << "Terminating JARVIS Core Engine..." << std::endl;
     running = false;
-}
-
-//Status command implementation
-void Engine::printStatus() const {
-    const auto now = std::chrono::steady_clock::now();
-    const auto secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
-
-    const long hours = secondsElapsed / 3600;
-    const long minutes = (secondsElapsed % 3600) / 60;
-    const long seconds = secondsElapsed % 60;
-
-    std::cout << "Engine: " << (running ? "running" : "stopped") << std::endl;
-    std::cout << "Uptime: "
-              << std::setfill('0') << std::setw(2) << hours << ":"
-              << std::setw(2) << minutes << ":"
-              << std::setw(2) << seconds << std::endl;
-    std::cout << "Last command: " << lastCommand << std::endl;
 }
 
 //Determine command type to perform required action
