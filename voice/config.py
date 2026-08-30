@@ -20,6 +20,8 @@ class VoiceConfig:
     stt_model_size: str
     stt_confidence_threshold: float
     stt_language: str
+    tts_enabled: bool
+    tts_voice: str
     audio_device: str | int | None
 
 
@@ -48,5 +50,7 @@ def load_config(path: str | None = None) -> VoiceConfig:
         # Optional: defaults to "en" so an existing voice_config.yaml written before this
         # field existed keeps working without edits.
         stt_language=raw["stt"].get("language", "en"),
+        tts_enabled=bool(raw.get("tts", {}).get("enabled", True)),
+        tts_voice=raw.get("tts", {}).get("voice", "en_US-lessac-medium"),
         audio_device=raw["audio"]["device"],
     )

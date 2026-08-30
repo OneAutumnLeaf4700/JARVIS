@@ -136,6 +136,7 @@ def dispatch_transcript(
     stt_confidence_threshold: float = 0.55,
     ai_confidence_threshold: float = 0.5,
     verbose: bool = False,
+    tts=None,
 ) -> None:
     """Implements the two-signal low-confidence handling from the design spec §6: low STT
     confidence skips the round-trip entirely; low AI/intent confidence (parsed out of the
@@ -143,12 +144,21 @@ def dispatch_transcript(
 
     verbose (--log): always echoes exactly what STT heard and its confidence, before the
     threshold decision, regardless of whether the utterance ends up dispatched or rejected —
-    a debugging aid for calibrating stt.confidence_threshold / mic choice against real speech."""
+    a debugging aid for calibrating stt.confidence_threshold / mic choice against real speech.
+
+    tts: optional TextToSpeech (voice.tts) — when provided, spoken alongside each printed
+    message using a plain-language rendering (no leading indentation/markdown-style punctuation
+    from the print() strings)."""
     if verbose:
         print(f"  heard: '{result.text}' (confidence {result.confidence:.2f})")
 
     if result.confidence < stt_confidence_threshold:
         print(f"  Didn't catch that clearly — heard: '{result.text}'. Try again?\n")
+        if tts is not None:
+            try:
+                tts.speak(f"Didn't catch that clearly. Heard: {result.text}. Try again?")
+            except Exception as exc:
+                print(f"  [TTS error: {exc}]")
         return
 
     request = build_request(result.text)
@@ -162,12 +172,23 @@ def dispatch_transcript(
     print(f"  command_type: {jarvis_pb2.CommandType.Name(response.command_type)}")
     print(f"  {response.message}\n")
 
+    if tts is not None:
+        try:
+            tts.speak(response.message)
+        except Exception as exc:
+            print(f"  [TTS error: {exc}]")
+
     match = _CONFIDENCE_RE.search(response.message)
     if match and float(match.group(1)) < ai_confidence_threshold:
         print("  Not sure I understood — could you rephrase that?\n")
+        if tts is not None:
+            try:
+                tts.speak("Not sure I understood. Could you rephrase that?")
+            except Exception as exc:
+                print(f"  [TTS error: {exc}]")
 
 
-def _run_push_to_talk(stub, stt: SpeechToText, config, verbose: bool = False) -> None:
+def _run_push_to_talk(stub, stt: SpeechToText, config, verbose: bool = False, tts=None) -> None:
     print("Push-to-talk mode. Press Enter, then speak. Press Enter again to stop. Ctrl+C to quit.\n")
     while True:
         try:
@@ -179,11 +200,11 @@ def _run_push_to_talk(stub, stt: SpeechToText, config, verbose: bool = False) ->
         print("  (recording — press Enter to stop)")
         utterance = capture_utterance_bounded(frames(device=config.audio_device))
         result = stt.transcribe(utterance)
-        dispatch_transcript(result, stub, config.stt_confidence_threshold, verbose=verbose)
+        dispatch_transcript(result, stub, config.stt_confidence_threshold, verbose=verbose, tts=tts)
 
 
 def _run_always_listen(
-    stub, detector: WakeWordDetector, stt: SpeechToText, config, verbose: bool = False
+    stub, detector: WakeWordDetector, stt: SpeechToText, config, verbose: bool = False, tts=None
 ) -> None:
     print("Always-listen mode. Say the wake word, then speak. Ctrl+C to quit.\n")
     frame_iter = frames(device=config.audio_device)
@@ -195,7 +216,7 @@ def _run_always_listen(
             print("  (wake word detected — listening...)")
             utterance = capture_utterance(frame_iter)
             result = stt.transcribe(utterance)
-            dispatch_transcript(result, stub, config.stt_confidence_threshold, verbose=verbose)
+            dispatch_transcript(result, stub, config.stt_confidence_threshold, verbose=verbose, tts=tts)
             detector.reset()
     except KeyboardInterrupt:
         print()
@@ -220,11 +241,16 @@ def main() -> None:
     stub = jarvis_pb2_grpc.JarvisServiceStub(channel)
     stt = SpeechToText(model_size=config.stt_model_size, language=config.stt_language)
 
+    tts = None
+    if config.tts_enabled:
+        from voice.tts import TextToSpeech, resolve_voice_model_path
+        tts = TextToSpeech(resolve_voice_model_path(config.tts_voice))
+
     if config.mode == "push_to_talk":
-        _run_push_to_talk(stub, stt, config, verbose=args.log)
+        _run_push_to_talk(stub, stt, config, verbose=args.log, tts=tts)
     else:
         detector = WakeWordDetector(sensitivity=config.wake_word_sensitivity)
-        _run_always_listen(stub, detector, stt, config, verbose=args.log)
+        _run_always_listen(stub, detector, stt, config, verbose=args.log, tts=tts)
 
 
 if __name__ == "__main__":
