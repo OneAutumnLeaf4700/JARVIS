@@ -37,6 +37,10 @@ generated/
 # Voice configuration (user-specific)
 voice/voice_config.yaml
 
+# Piper voice model weights — downloaded, not committed (see voice/tests/fixtures/README.md)
+voice/tests/fixtures/*.onnx
+voice/tests/fixtures/*.onnx.json
+
 #TODO list
 TODO.md
 
