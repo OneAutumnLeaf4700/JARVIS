@@ -61,6 +61,58 @@ which small model, latency budget) before it's more than this note.
 
 ---
 
+## Self-development loop: report a bug to JARVIS, JARVIS routes the fix
+
+Expands on the "Stretch" note under Core interaction loop above with a concrete mechanism,
+raised 2026-08-30. Not scoped, not scheduled, deliberately not touched until JARVIS is
+"fairly developed" — see the readiness gate at the end of this section.
+
+**The idea:** instead of the user leaving JARVIS to prompt Claude Code directly when they hit a
+bug, they tell JARVIS about the bug like any other request. JARVIS then handles routing the fix
+itself:
+
+1. **Local triage.** The largest model JARVIS runs locally (via Ollama) reads the bug report and
+   produces a structured description of the problem — this machine's hardware can run a decent
+   local model for *understanding/describing* a bug, but isn't fast enough to have that same
+   local model do the actual coding efficiently.
+2. **Route to a capable builder backend.** That structured description becomes the prompt/task
+   handed to whichever backend is actually going to write the fix — e.g. a hosted API (the free
+   OpenAI API tier was suggested) or Claude Code itself, invoked directly against the JARVIS
+   repo directory so it can read the codebase and make the change.
+3. **Model routing + fallback.** Needs its own routing/fallback logic: if the primary builder
+   backend is unavailable or rate/quota-limited (API maxed out, Claude Code unavailable, etc.),
+   fall back to an alternate backend rather than failing the request outright. Same tiered-escalation
+   shape as the Understanding tier (INV-8) and the tiered-model-escalation idea above, but for
+   *building* rather than *classifying*.
+4. **User confirms, then a safe restart.** Once the backend reports the fix/feature as complete,
+   JARVIS asks the user whether to restart and pick up the change. If yes, an automated restart
+   script safely terminates the running JARVIS session/process and relaunches it with the new
+   build.
+5. **Longer-horizon extension:** JARVIS doing this proactively — reading its own roadmap and
+   deciding to self-develop the next item — rather than only reacting to a user-reported bug.
+   Explicitly flagged as needing JARVIS to be "at a fairly developed point" first.
+
+**Why this waits:** this is JARVIS modifying and restarting *itself*, which is categorically
+more sensitive than any capability on the roadmap today (INV-9's highest tier, T4-and-beyond
+territory — external network calls to a builder API *and* an action that changes and restarts
+JARVIS's own running code). It also has real prerequisites that don't exist yet:
+- A configuration system (Phase 1's still-open item) to hold backend routing/fallback settings.
+- A capability/plugin layer mature enough to add "self-modify + restart" as a capability without
+  it being a special-cased hack bolted onto the core.
+- A real consent/guardrail model (Phase 2.5's deferred safety-guardrails item) — this is the
+  single most consequential category of action JARVIS could take, and needs explicit,
+  strong confirmation, not a rubber-stamp default.
+- Some working precedent for calling external paid/rate-limited APIs with fallback, which
+  nothing in the codebase does yet (today's only external call is the local Ollama path).
+
+**Readiness signal to watch for:** worth revisiting once Phase 4 (Plugins) has landed a working
+config system, at least one plugin that makes a real external network call with fallback
+behavior, and the safety-guardrail work from Phase 2.5 is no longer deferred. Flag this to the
+user proactively once those land, rather than waiting to be asked — per their explicit request
+to "check in every now and then" on this.
+
+---
+
 ## Open questions to resolve during the architecture pass
 
 - How does the natural-language → service mapping registry actually get defined? (static config, plugin self-registration, LLM-generated mapping suggestions?)
