@@ -136,7 +136,7 @@ capability sprawl:
 1. **`PluginConfig`** (`core/plugin_config.h/.cpp`) — loads `config/capabilities.cfg` (per-name
    `enabled=true/false`) and `config/consent_grants.cfg` (per-name recorded grants); `grant(name)`
    persists a new grant back to disk.
-2. **`ConsentGate`** (`core/consent_gate.h/.cpp`) — pure function of `(Capability, PluginConfig)`:
+2. **`ConsentGate`** (`core/consent_gate.h/.cpp`) — a small class binding a `const PluginConfig&` via its constructor (`explicit ConsentGate(const PluginConfig&)`), exposing `ConsentResult check(const Capability&) const`:
    T0/T1 always allowed, T2 requires a grant, T3/T4 always denied (enforcement for those tiers is
    future work, not yet implemented).
 3. **`CapabilityRegistry::setPluginConfig()`** — wires both checks into `dispatch()` ahead of
