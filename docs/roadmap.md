@@ -78,4 +78,40 @@ Replace `print()` in `jarvis_ai_server.py` with `logging` (or `structlog`). Log 
 - **Phase 2.5 — LLM integration:** swap the rule classifier for an Ollama/llama.cpp call behind the same `classify()` signature, so nothing on the C++ side changes. Rules stay the fast/cheap path; the LLM is the fallback.
 - **Phase 3 — Voice I/O and Phase 4 — Plugins:** the intent layer becomes the natural place to register new intents against new plugins.
 
+## Phase 3 — Voice I/O (input) 🚧 In progress
+
+Adds a voice-driven front end without touching the existing pipeline: a new `voice/` package
+plugs in *below* the gRPC seam, exactly where `tools/interactive_client.py` plugs in today.
+
+- **`voice/audio_capture.py`** — yields int16 mono frames from either a live microphone or a
+  WAV file (`frames()` / `frames_from_wav()`), so tests can exercise real fixture clips without
+  hardware.
+- **`voice/wake_word.py`** — `WakeWordDetector` wraps openWakeWord (local ONNX model, no
+  account/API key) with a `detect(frame) -> bool` call per frame.
+- **`voice/stt.py`** — `SpeechToText` wraps faster-whisper, turning a buffered utterance into a
+  `TranscriptResult(text, confidence)`.
+- **`voice/config.py`** — loads `voice_config.yaml` (mode, wake-word sensitivity, STT model
+  size/confidence threshold, audio device) with a documented example file.
+- **`voice/voice_client.py`** — the orchestrator. `capture_utterance()` buffers frames until
+  trailing silence or a cap is hit; `build_request()` mirrors
+  `tools/interactive_client.py`'s known-command-or-full-text routing; `dispatch_transcript()`
+  applies the two-signal low-confidence handling (§6 of the design spec) and calls
+  `JarvisService.ProcessCommand` over the same unmodified gRPC boundary every other client
+  uses. Push-to-talk (`_run_push_to_talk`) and always-listen (`_run_always_listen`, wake-word
+  gated) are both thin loops around the same capture → STT → dispatch path.
+
+Because this is entirely a new thin surface reading the mic and calling the existing
+`ProcessCommand` RPC, no `core/`, `ai/`, or `proto/` changes were needed (INV-3) — Understanding
+and Orchestrate stay exactly as Phase 2/2.5 left them. `start_jarvis.sh --voice` launches it in
+place of the text client.
+
+Text-to-speech (Voice Output) is a deliberately separate future sub-project — Render-side only,
+orthogonal to this phase's capture/wake-word/STT work — and is not part of Phase 3's scope here.
+
+**Phase 3 (voice input) lands when:** microphone capture, wake-word detection, and speech-to-text
+all work end-to-end through the existing `ProcessCommand` pipeline, both push-to-talk and
+always-listen modes are usable, low-confidence input is handled gracefully (clarify, don't
+guess), and the `voice/` test suite passes. **Landed** for voice input; text-to-speech remains
+📋 to do as its own follow-on.
+
 See [`features.md`](features.md) for the full phase-by-phase checklist beyond this point.

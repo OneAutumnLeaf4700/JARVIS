@@ -18,4 +18,10 @@ class WakeWordDetector:
             # Model key naming can vary by openwakeword version - fall back to the only
             # entry if there's exactly one, since we only ever load one model.
             score = next(iter(scores.values()))
-        return score >= self._sensitivity
+        return bool(score >= self._sensitivity)
+
+    def reset(self) -> None:
+        """Clear the model's internal streaming feature buffer. Must be called after handling a
+        detection, otherwise stale buffer state can re-trigger detect() on the next several
+        frames even though no new wake word was said."""
+        self._model.reset()

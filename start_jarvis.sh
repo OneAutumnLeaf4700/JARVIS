@@ -4,7 +4,7 @@
 # to the real pipeline (known commands + natural language + LLM escalation).
 #
 # Usage: ./start_jarvis.sh [--voice]
-#   --voice   Launch the voice client (voice/voice_client.py) instead of the text client.
+#   --voice   Launch the voice client (python3 -m voice.voice_client) instead of the text client.
 # Ctrl+C or 'exit' at the prompt stops the interactive client and shuts down both servers.
 
 set -euo pipefail

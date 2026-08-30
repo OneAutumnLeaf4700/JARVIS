@@ -19,7 +19,7 @@ class VoiceConfig:
     wake_word_sensitivity: float
     stt_model_size: str
     stt_confidence_threshold: float
-    audio_device: str | None
+    audio_device: str | int | None
 
 
 def load_config(path: str | None = None) -> VoiceConfig:

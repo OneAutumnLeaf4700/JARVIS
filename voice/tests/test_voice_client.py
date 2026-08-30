@@ -1,12 +1,9 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
-import pytest
 
 from voice.stt import TranscriptResult
 from voice.voice_client import build_request, capture_utterance, dispatch_transcript
-
-KNOWN_COMMANDS = {"echo", "status", "about", "help"}
 
 
 def test_build_request_known_command_routes_directly():
@@ -48,6 +45,29 @@ def test_capture_utterance_stops_on_trailing_silence():
 
     # Should stop shortly after the 15th consecutive silent block, not consume the whole list.
     assert len(result) < len(frame_sequence) * 1280
+
+
+def test_capture_utterance_does_not_discard_speech_after_leading_pause():
+    loud = np.full(1280, 5000, dtype=np.int16)
+    silent = np.zeros(1280, dtype=np.int16)
+    # 20 blocks of leading silence (more than max_silence_blocks=15) before the user actually
+    # starts speaking, then speech, then trailing silence. Without arming the trailing-silence
+    # stop condition on speech_started, this would previously return before the loud blocks
+    # were ever captured.
+    frame_sequence = [silent] * 20 + [loud, loud, loud, loud, loud] + [silent] * 16
+
+    result = capture_utterance(
+        iter(frame_sequence),
+        silence_rms_threshold=300.0,
+        max_silence_blocks=15,
+        max_leading_silence_blocks=80,
+        max_blocks=150,
+    )
+
+    # The bug discarded the utterance as silence before any loud block was ever captured, so
+    # the strongest signal is that the loud samples actually made it into the buffer.
+    assert len(result) > 0
+    assert int(np.max(result)) == 5000
 
 
 def test_capture_utterance_respects_max_blocks():

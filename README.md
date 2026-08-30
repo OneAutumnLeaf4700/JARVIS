@@ -194,7 +194,7 @@ gRPC endpoint as `tools/interactive_client.py`, just fed by speech instead of ty
 requires its own Python dependencies, separate from core JARVIS's:
 
 ```bash
-pip install -r voice/requirements.txt
+.venv/bin/pip install -r voice/requirements.txt
 ```
 
 Copy the example config and adjust `mode` and `audio.device` for your machine:

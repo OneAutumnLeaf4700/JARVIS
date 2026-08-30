@@ -27,6 +27,9 @@ from voice.config import load_config
 from voice.stt import SpeechToText, TranscriptResult
 from voice.wake_word import WakeWordDetector
 
+# Deliberately duplicated from tools/interactive_client.py's identical dict rather than
+# imported — these are two independent thin-client surfaces (INV-3); importing across them
+# would couple surfaces that should stay decoupled, which is worse than the duplication.
 KNOWN_COMMANDS = {
     "echo": jarvis_pb2.COMMAND_TYPE_ECHO,
     "status": jarvis_pb2.COMMAND_TYPE_STATUS,
@@ -34,7 +37,11 @@ KNOWN_COMMANDS = {
     "help": jarvis_pb2.COMMAND_TYPE_HELP,
 }
 
-_CONFIDENCE_RE = re.compile(r"confidence (\d+\.\d+)")
+# Matches the literal bracketed format ai/jarvis_ai_server.py emits:
+# f"[detected intent: {intent}, confidence {confidence:.2f}]". Tightened to the full literal
+# (rather than a bare "confidence \d+\.\d+" scan) so a capability's own output text can't
+# accidentally false-positive-match this pattern.
+_CONFIDENCE_RE = re.compile(r"\[detected intent: \w+, confidence (\d+\.\d+)\]")
 
 
 def build_request(transcript: str) -> "jarvis_pb2.ExecuteCommandRequest":
@@ -54,13 +61,17 @@ def capture_utterance(
     frame_iter,
     silence_rms_threshold: float = 300.0,
     max_silence_blocks: int = 15,
+    max_leading_silence_blocks: int = 80,
     max_blocks: int = 150,
 ) -> np.ndarray:
     """Buffer frames from frame_iter until trailing silence (max_silence_blocks consecutive
-    quiet blocks, only checked once at least a few blocks have been captured) or max_blocks is
-    reached, whichever comes first. Returns the concatenated int16 utterance."""
+    quiet blocks after speech has actually started) or max_blocks is reached, whichever comes
+    first. Before any speech is observed, only max_leading_silence_blocks of quiet is tolerated
+    (covers a press-to-talk pause before the user actually starts speaking) — otherwise a press
+    with no speech at all would hang until max_blocks. Returns the concatenated int16 utterance."""
     buffer = []
     silence_count = 0
+    speech_started = False
 
     for frame in frame_iter:
         buffer.append(frame)
@@ -70,11 +81,16 @@ def capture_utterance(
             silence_count += 1
         else:
             silence_count = 0
+            speech_started = True
 
         if len(buffer) >= max_blocks:
             break
-        if len(buffer) > 3 and silence_count >= max_silence_blocks:
-            break
+        if speech_started:
+            if silence_count >= max_silence_blocks:
+                break
+        else:
+            if silence_count >= max_leading_silence_blocks:
+                break
 
     if not buffer:
         return np.array([], dtype=np.int16)
@@ -110,7 +126,7 @@ def dispatch_transcript(
         print("  Not sure I understood — could you rephrase that?\n")
 
 
-def _run_push_to_talk(stub, wake_config, stt: SpeechToText, config) -> None:
+def _run_push_to_talk(stub, stt: SpeechToText, config) -> None:
     print("Push-to-talk mode. Press Enter, then speak. Ctrl+C to quit.\n")
     while True:
         try:
@@ -136,6 +152,7 @@ def _run_always_listen(stub, detector: WakeWordDetector, stt: SpeechToText, conf
             utterance = capture_utterance(frame_iter)
             result = stt.transcribe(utterance)
             dispatch_transcript(result, stub, config.stt_confidence_threshold)
+            detector.reset()
     except KeyboardInterrupt:
         print()
         return
@@ -153,7 +170,7 @@ def main() -> None:
     stt = SpeechToText(model_size=config.stt_model_size)
 
     if config.mode == "push_to_talk":
-        _run_push_to_talk(stub, None, stt, config)
+        _run_push_to_talk(stub, stt, config)
     else:
         detector = WakeWordDetector(sensitivity=config.wake_word_sensitivity)
         _run_always_listen(stub, detector, stt, config)
