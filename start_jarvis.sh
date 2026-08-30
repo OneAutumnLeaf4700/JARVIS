@@ -3,10 +3,25 @@
 # Python AI server, the C++ gRPC server, then drops you into an interactive client that talks
 # to the real pipeline (known commands + natural language + LLM escalation).
 #
-# Usage: ./start_jarvis.sh
+# Usage: ./start_jarvis.sh [--voice]
+#   --voice   Launch the voice client (voice/voice_client.py) instead of the text client.
 # Ctrl+C or 'exit' at the prompt stops the interactive client and shuts down both servers.
 
 set -euo pipefail
+
+VOICE=0
+for arg in "$@"; do
+    case "$arg" in
+        --voice)
+            VOICE=1
+            ;;
+        *)
+            echo "Unknown argument: $arg" >&2
+            echo "Usage: $0 [--voice]" >&2
+            exit 1
+            ;;
+    esac
+done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
@@ -47,6 +62,12 @@ if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
     exit 1
 fi
 PYTHON="$ROOT/.venv/bin/python"
+
+if [[ "$VOICE" -eq 1 ]] && [[ ! -f "$ROOT/voice/voice_config.yaml" ]]; then
+    echo "ERROR: voice/voice_config.yaml not found. Copy voice/voice_config.example.yaml to"
+    echo "voice/voice_config.yaml and adjust it for your machine first — see README.md."
+    exit 1
+fi
 
 # 3. Generated protobuf stubs — regenerate if missing (gitignored, not shipped)
 if [[ ! -f "$ROOT/generated/python/jarvis_pb2.py" ]] || [[ ! -f "$ROOT/generated/cpp/jarvis.pb.cc" ]]; then
@@ -92,7 +113,14 @@ if ! kill -0 "$GRPC_SERVER_PID" 2>/dev/null; then
     exit 1
 fi
 
-echo "== Both servers running. Launching interactive client. =="
-echo
+if [[ "$VOICE" -eq 1 ]]; then
+    echo "== Both servers running. Launching voice client. =="
+    echo
 
-"$PYTHON" tools/interactive_client.py
+    "$PYTHON" -m voice.voice_client
+else
+    echo "== Both servers running. Launching interactive client. =="
+    echo
+
+    "$PYTHON" tools/interactive_client.py
+fi

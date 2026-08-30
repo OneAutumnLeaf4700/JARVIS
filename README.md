@@ -187,6 +187,37 @@ python3 -m grpc_tools.protoc -Iproto \
 
 ---
 
+## Voice (optional)
+
+Voice input is an optional add-on client — it talks to the same `JarvisService.ProcessCommand`
+gRPC endpoint as `tools/interactive_client.py`, just fed by speech instead of typed text. It
+requires its own Python dependencies, separate from core JARVIS's:
+
+```bash
+pip install -r voice/requirements.txt
+```
+
+Copy the example config and adjust `mode` and `audio.device` for your machine:
+
+```bash
+cp voice/voice_config.example.yaml voice/voice_config.yaml
+```
+
+Then launch with:
+
+```bash
+./start_jarvis.sh --voice
+```
+
+(or run `python3 -m voice.voice_client` directly from the repo root if the two servers are
+already running some other way).
+
+On first run, the `openwakeword` ONNX model and the `faster-whisper` model weights are
+downloaded — they aren't committed to the repo. This needs network access once; after that,
+voice input runs fully offline (INV-11).
+
+---
+
 ## Why this project exists
 
 JARVIS is a learning vehicle, not a product. The goals, in order:
