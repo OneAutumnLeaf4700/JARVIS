@@ -2,8 +2,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 
-from voice.tts import SynthesisResult, TextToSpeech
+from voice.tts import SynthesisResult, TextToSpeech, resolve_voice_model_path
 
 VOICE_MODEL_PATH = str(Path(__file__).parent / "fixtures" / "en_US-lessac-low.onnx")
 
@@ -42,3 +43,26 @@ def test_speak_uses_audio_playback_play_when_no_player_given(monkeypatch):
     tts.speak("hello")
 
     mock_play.assert_called_once()
+
+
+def test_resolve_voice_model_path_builds_expected_path(tmp_path, monkeypatch):
+    import voice.tts as tts_module
+
+    models_dir = tmp_path / "tts_models"
+    models_dir.mkdir()
+    (models_dir / "en_US-lessac-medium.onnx").touch()
+    monkeypatch.setattr(tts_module, "_TTS_MODELS_DIR", models_dir)
+
+    path = resolve_voice_model_path("en_US-lessac-medium")
+
+    assert path.endswith("en_US-lessac-medium.onnx")
+    assert "tts_models" in path
+
+
+def test_resolve_voice_model_path_raises_clear_error_when_missing(tmp_path, monkeypatch):
+    import voice.tts as tts_module
+
+    monkeypatch.setattr(tts_module, "_TTS_MODELS_DIR", tmp_path)
+
+    with pytest.raises(FileNotFoundError, match="en_US-lessac-medium"):
+        resolve_voice_model_path("en_US-lessac-medium")

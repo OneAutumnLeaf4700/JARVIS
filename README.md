@@ -216,6 +216,18 @@ On first run, the `openwakeword` ONNX model and the `faster-whisper` model weigh
 downloaded — they aren't committed to the repo. This needs network access once; after that,
 voice input runs fully offline (INV-11).
 
+Voice *output* (text-to-speech) is opt-in via `tts.enabled: true` in `voice_config.yaml`. When
+enabled, download the Piper voice model named by `tts.voice` (default `en_US-lessac-medium`)
+into `voice/tts_models/`:
+
+```bash
+.venv/bin/python -m piper.download_voices --download-dir voice/tts_models en_US-lessac-medium
+```
+
+`voice/tts_models/` is gitignored — the model weights are per-machine, not repo content, same
+treatment as `voice/voice_config.yaml`. Setting `tts.enabled: false` in `voice_config.yaml`
+skips this download entirely — voice input still works, text/print-only.
+
 ---
 
 ## Why this project exists

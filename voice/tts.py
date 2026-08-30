@@ -12,12 +12,28 @@ each `AudioChunk` exposes `.audio_int16_array` (already-decoded int16 PCM) and i
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
 from piper import PiperVoice
 
 from voice.audio_playback import play as _default_play
+
+_TTS_MODELS_DIR = Path(__file__).resolve().parent / "tts_models"
+
+
+def resolve_voice_model_path(voice_name: str) -> str:
+    """Maps a config voice name (e.g. "en_US-lessac-medium") to its local model file path.
+    Model files are downloaded once (see README) into voice/tts_models/, gitignored — same
+    treatment as voice_config.yaml, since they're per-machine, not repo content."""
+    path = _TTS_MODELS_DIR / f"{voice_name}.onnx"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Voice model '{voice_name}' not found at '{path}'. "
+            "Download it first — see README.md's Voice (optional) setup section."
+        )
+    return str(path)
 
 
 @dataclass(frozen=True)

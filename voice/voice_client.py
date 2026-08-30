@@ -243,8 +243,8 @@ def main() -> None:
 
     tts = None
     if config.tts_enabled:
-        from voice.tts import TextToSpeech
-        tts = TextToSpeech(config.tts_voice)
+        from voice.tts import TextToSpeech, resolve_voice_model_path
+        tts = TextToSpeech(resolve_voice_model_path(config.tts_voice))
 
     if config.mode == "push_to_talk":
         _run_push_to_talk(stub, stt, config, verbose=args.log, tts=tts)

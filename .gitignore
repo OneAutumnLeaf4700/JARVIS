@@ -41,6 +41,9 @@ voice/voice_config.yaml
 voice/tests/fixtures/*.onnx
 voice/tests/fixtures/*.onnx.json
 
+# Runtime TTS voice models — downloaded per-machine, not committed (see README.md)
+voice/tts_models/
+
 #TODO list
 TODO.md
 
