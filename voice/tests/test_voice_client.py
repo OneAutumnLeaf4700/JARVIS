@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from voice.stt import TranscriptResult
+from voice.tts import SynthesisResult
 from voice.voice_client import (
     build_request,
     capture_utterance,
@@ -214,3 +215,64 @@ def test_dispatch_transcript_prints_clarification_on_low_ai_confidence(capsys):
 
     captured = capsys.readouterr()
     assert "Not sure I understood" in captured.out
+
+
+def test_dispatch_transcript_speaks_response_above_threshold():
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_STATUS, message="Engine: running"
+    )
+    result = TranscriptResult(text="status", confidence=0.9)
+    tts = MagicMock()
+
+    dispatch_transcript(result, stub, stt_confidence_threshold=0.55, tts=tts)
+
+    tts.speak.assert_called_once_with("Engine: running")
+
+
+def test_dispatch_transcript_speaks_stt_low_confidence_message():
+    stub = MagicMock()
+    low_confidence_result = TranscriptResult(text="garbled mumble", confidence=0.1)
+    tts = MagicMock()
+
+    dispatch_transcript(low_confidence_result, stub, stt_confidence_threshold=0.55, tts=tts)
+
+    tts.speak.assert_called_once()
+    spoken_text = tts.speak.call_args[0][0]
+    assert "garbled mumble" in spoken_text
+
+
+def test_dispatch_transcript_speaks_ai_low_confidence_clarification():
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_UNKNOWN,
+        message="[detected intent: STATUS, confidence 0.30]",
+    )
+    result = TranscriptResult(text="some ambiguous mumble", confidence=0.9)
+    tts = MagicMock()
+
+    dispatch_transcript(
+        result, stub, stt_confidence_threshold=0.55, ai_confidence_threshold=0.5, tts=tts
+    )
+
+    # Two speak() calls: the dispatched response, then the clarification.
+    assert tts.speak.call_count == 2
+    second_call_text = tts.speak.call_args_list[1][0][0]
+    assert "Not sure I understood" in second_call_text
+
+
+def test_dispatch_transcript_with_no_tts_makes_no_speak_calls():
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_STATUS, message="Engine: running"
+    )
+    result = TranscriptResult(text="status", confidence=0.9)
+
+    # tts defaults to None — must not raise, must not attempt to speak.
+    dispatch_transcript(result, stub, stt_confidence_threshold=0.55)
