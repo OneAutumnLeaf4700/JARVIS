@@ -276,3 +276,58 @@ def test_dispatch_transcript_with_no_tts_makes_no_speak_calls():
 
     # tts defaults to None — must not raise, must not attempt to speak.
     dispatch_transcript(result, stub, stt_confidence_threshold=0.55)
+
+
+def test_dispatch_transcript_survives_tts_speak_error_on_response(capsys):
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_STATUS, message="Engine: running"
+    )
+    result = TranscriptResult(text="status", confidence=0.9)
+    tts = MagicMock()
+    tts.speak.side_effect = RuntimeError("boom")
+
+    # Must not raise even though speak() blows up.
+    dispatch_transcript(result, stub, stt_confidence_threshold=0.55, tts=tts)
+
+    captured = capsys.readouterr()
+    # The response was already printed before speak() was attempted, and that
+    # print must survive the speak() failure untouched.
+    assert "Engine: running" in captured.out
+    assert "[TTS error: boom]" in captured.out
+
+
+def test_dispatch_transcript_survives_tts_speak_error_on_stt_low_confidence(capsys):
+    stub = MagicMock()
+    low_confidence_result = TranscriptResult(text="garbled mumble", confidence=0.1)
+    tts = MagicMock()
+    tts.speak.side_effect = RuntimeError("boom")
+
+    dispatch_transcript(low_confidence_result, stub, stt_confidence_threshold=0.55, tts=tts)
+
+    captured = capsys.readouterr()
+    assert "garbled mumble" in captured.out
+    assert "[TTS error: boom]" in captured.out
+
+
+def test_dispatch_transcript_survives_tts_speak_error_on_ai_low_confidence(capsys):
+    import jarvis_pb2
+
+    stub = MagicMock()
+    stub.ProcessCommand.return_value = jarvis_pb2.ExecuteCommandResponse(
+        command_type=jarvis_pb2.COMMAND_TYPE_UNKNOWN,
+        message="[detected intent: STATUS, confidence 0.30]",
+    )
+    result = TranscriptResult(text="some ambiguous mumble", confidence=0.9)
+    tts = MagicMock()
+    tts.speak.side_effect = RuntimeError("boom")
+
+    dispatch_transcript(
+        result, stub, stt_confidence_threshold=0.55, ai_confidence_threshold=0.5, tts=tts
+    )
+
+    captured = capsys.readouterr()
+    assert "Not sure I understood" in captured.out
+    assert captured.out.count("[TTS error: boom]") == 2

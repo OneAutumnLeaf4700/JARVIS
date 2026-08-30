@@ -155,7 +155,10 @@ def dispatch_transcript(
     if result.confidence < stt_confidence_threshold:
         print(f"  Didn't catch that clearly — heard: '{result.text}'. Try again?\n")
         if tts is not None:
-            tts.speak(f"Didn't catch that clearly. Heard: {result.text}. Try again?")
+            try:
+                tts.speak(f"Didn't catch that clearly. Heard: {result.text}. Try again?")
+            except Exception as exc:
+                print(f"  [TTS error: {exc}]")
         return
 
     request = build_request(result.text)
@@ -170,13 +173,19 @@ def dispatch_transcript(
     print(f"  {response.message}\n")
 
     if tts is not None:
-        tts.speak(response.message)
+        try:
+            tts.speak(response.message)
+        except Exception as exc:
+            print(f"  [TTS error: {exc}]")
 
     match = _CONFIDENCE_RE.search(response.message)
     if match and float(match.group(1)) < ai_confidence_threshold:
         print("  Not sure I understood — could you rephrase that?\n")
         if tts is not None:
-            tts.speak("Not sure I understood. Could you rephrase that?")
+            try:
+                tts.speak("Not sure I understood. Could you rephrase that?")
+            except Exception as exc:
+                print(f"  [TTS error: {exc}]")
 
 
 def _run_push_to_talk(stub, stt: SpeechToText, config, verbose: bool = False, tts=None) -> None:
