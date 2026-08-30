@@ -146,11 +146,20 @@ this path:
    Try again?"` and the utterance is **not** sent to `ProcessCommand` at all (sending a garbled
    transcript into the classifier would just produce a confusing `UNKNOWN` round-trip for no
    benefit).
-2. **Intent confidence** — the *existing* `resolve()`/classifier confidence, already returned
-   over gRPC today (`AIResult.confidence`, INV-8's stable interface — unchanged by this spec).
-   When a response comes back with low confidence, print `"Not sure I understood — did you
-   mean: <best guess if available>?"` This is purely a Render-side addition to how
-   `voice_client.py` prints an existing field; no change to the Understanding tier itself.
+2. **Intent confidence** — `AIResult.confidence` exists only on the internal C++↔Python
+   `ai.proto` seam; it is consumed and discarded inside `core/jarvis_service.cpp` and never
+   crosses into `ExecuteCommandResponse` on the C++↔voice-client gRPC boundary. There is no
+   first-class confidence field available to this client. Instead, `voice_client.py` parses the
+   confidence value back out of the human-readable `response.message` string that
+   `ai/jarvis_ai_server.py` already emits (`f"[detected intent: {intent}, confidence
+   {confidence:.2f}]"`) — an ad-hoc text scrape, not a first-class field — using a regex
+   tightened to match that full literal bracketed format (`_CONFIDENCE_RE` in
+   `voice_client.py`) so an unrelated capability's own output text can't accidentally
+   false-positive-match it. When the parsed value is below `ai_confidence_threshold`, print
+   `"Not sure I understood — could you rephrase that?"` A proper first-class `ai_confidence`
+   field on `ExecuteCommandResponse` would be the correct long-term fix, but it is out of this
+   plan's scope — this plan's Global Constraints forbid `core/`/proto changes — and is a natural
+   follow-up item, not a defect to fix now.
 
 This is written so it becomes an audio prompt "for free" once Voice Output lands — same
 decision logic, the `print()` call is the only thing that changes to a TTS call.

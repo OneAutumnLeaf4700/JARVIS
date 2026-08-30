@@ -55,13 +55,10 @@ Grows the Understanding tier beyond the rule classifier without changing its sta
 
 ---
 
-## Phase 3 — Voice I/O 📋 To do
+## Phase 3 — Voice I/O 🚧 In progress
 
-- 📋 Microphone capture + wake word ("Jarvis") — needs a wake-word library (Porcupine / openWakeWord)
-- 📋 Speech-to-text (Whisper / Vosk) — transcript feeds into the existing `UNKNOWN`-command pipeline unchanged
-- 📋 Text-to-speech (Piper / Coqui) — orthogonal to STT, no dependency
-- 📋 Push-to-talk vs. always-listen mode switching (config-driven)
-- 📋 Graceful low-confidence handling — ask for clarification instead of guessing
+- ✅ **Voice input** — new `voice/` package: `audio_capture.py` (mic + WAV framing), `wake_word.py` (openWakeWord-based `WakeWordDetector`, fully local/ONNX), `stt.py` (faster-whisper wrapper, transcript + confidence), `config.py` (`voice_config.yaml` loader), `voice_client.py` (thin gRPC client orchestrating capture → wake word → STT → dispatch). Push-to-talk and always-listen modes, config-driven. `voice_client.py` dispatches through the existing, unmodified `JarvisService.ProcessCommand` pipeline exactly like `tools/interactive_client.py` — no `core/`/`ai/` changes were needed (INV-3). Graceful low-confidence handling: low STT confidence skips the round-trip and asks the user to repeat; low AI/intent confidence prints a clarification after the round-trip. Wired into `start_jarvis.sh --voice`.
+- 📋 Text-to-speech (Piper / Coqui) — orthogonal to STT, no dependency; separate future sub-project
 
 ---
 

@@ -34,6 +34,9 @@ generated/
 .jarvis-ai-server.log
 .jarvis-grpc-server.log
 
+# Voice configuration (user-specific)
+voice/voice_config.yaml
+
 #TODO list
 TODO.md
 
