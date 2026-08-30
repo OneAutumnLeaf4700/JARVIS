@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 
@@ -33,3 +34,30 @@ def test_transcribes_silence_with_low_confidence():
     result = stt.transcribe(silence)
 
     assert result.confidence < 0.3
+
+
+def test_transcribe_defaults_to_english_language():
+    # Regression: without pinning a language, Whisper auto-detects per utterance and can
+    # mis-detect short/ambiguous clips as a different language entirely (observed live:
+    # a short "hello" transcribed as Arabic). Pinning "en" removes that guesswork.
+    with patch("voice.stt.WhisperModel") as MockModel:
+        mock_instance = MockModel.return_value
+        mock_instance.transcribe.return_value = ([], {})
+
+        stt = SpeechToText(model_size="base")
+        stt.transcribe(np.zeros(1600, dtype=np.int16))
+
+        _, kwargs = mock_instance.transcribe.call_args
+        assert kwargs.get("language") == "en"
+
+
+def test_transcribe_language_is_configurable():
+    with patch("voice.stt.WhisperModel") as MockModel:
+        mock_instance = MockModel.return_value
+        mock_instance.transcribe.return_value = ([], {})
+
+        stt = SpeechToText(model_size="base", language="fr")
+        stt.transcribe(np.zeros(1600, dtype=np.int16))
+
+        _, kwargs = mock_instance.transcribe.call_args
+        assert kwargs.get("language") == "fr"

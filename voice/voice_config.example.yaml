@@ -5,5 +5,7 @@ wake_word:
 stt:
   model_size: base          # tiny | base | small | medium
   confidence_threshold: 0.55  # below this -> clarification path, transcript is discarded
+  language: en               # ISO-639-1 code, pinned so Whisper doesn't auto-detect language
+                              # per utterance (short clips can otherwise mis-detect wildly)
 audio:
   device: null               # null = system default input device; or a sounddevice device index/name

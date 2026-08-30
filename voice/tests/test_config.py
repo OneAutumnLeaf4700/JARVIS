@@ -39,8 +39,31 @@ def test_load_config_from_explicit_path(tmp_path):
         wake_word_sensitivity=0.6,
         stt_model_size="small",
         stt_confidence_threshold=0.5,
+        stt_language="en",
         audio_device=None,
     )
+
+
+def test_load_config_stt_language_defaults_to_english_when_omitted(tmp_path):
+    # VALID_YAML above has no stt.language key — an existing user's voice_config.yaml
+    # (written before this field existed) must keep working with a sensible default.
+    config_file = tmp_path / "voice_config.yaml"
+    config_file.write_text(VALID_YAML)
+
+    config = load_config(str(config_file))
+
+    assert config.stt_language == "en"
+
+
+def test_load_config_stt_language_is_overridable(tmp_path):
+    config_file = tmp_path / "voice_config.yaml"
+    config_file.write_text(
+        VALID_YAML.replace("confidence_threshold: 0.5", "confidence_threshold: 0.5\n  language: fr")
+    )
+
+    config = load_config(str(config_file))
+
+    assert config.stt_language == "fr"
 
 
 def test_load_config_from_env_var(tmp_path, monkeypatch):

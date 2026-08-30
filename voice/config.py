@@ -19,6 +19,7 @@ class VoiceConfig:
     wake_word_sensitivity: float
     stt_model_size: str
     stt_confidence_threshold: float
+    stt_language: str
     audio_device: str | int | None
 
 
@@ -44,5 +45,8 @@ def load_config(path: str | None = None) -> VoiceConfig:
         wake_word_sensitivity=float(raw["wake_word"]["sensitivity"]),
         stt_model_size=raw["stt"]["model_size"],
         stt_confidence_threshold=float(raw["stt"]["confidence_threshold"]),
+        # Optional: defaults to "en" so an existing voice_config.yaml written before this
+        # field existed keeps working without edits.
+        stt_language=raw["stt"].get("language", "en"),
         audio_device=raw["audio"]["device"],
     )

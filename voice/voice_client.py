@@ -218,7 +218,7 @@ def main() -> None:
 
     channel = grpc.insecure_channel("localhost:50051")
     stub = jarvis_pb2_grpc.JarvisServiceStub(channel)
-    stt = SpeechToText(model_size=config.stt_model_size)
+    stt = SpeechToText(model_size=config.stt_model_size, language=config.stt_language)
 
     if config.mode == "push_to_talk":
         _run_push_to_talk(stub, stt, config, verbose=args.log)
