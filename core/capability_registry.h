@@ -37,3 +37,4 @@ void registerBuiltinCapabilities(CapabilityRegistry& registry);
 // Builtin capability factories — exposed for direct testing (see tests/capability_registry_test.cpp).
 Capability makeEchoCapability();
 Capability makeAboutCapability();
+Capability makeStatusCapability();

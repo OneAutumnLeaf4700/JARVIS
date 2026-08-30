@@ -79,3 +79,25 @@ TEST(BuiltinCapabilitiesTest, EchoAndAboutAreBothPowerTierT0) {
     EXPECT_EQ(echo->powerTier, PowerTier::T0_READ_ONLY);
     EXPECT_EQ(about->powerTier, PowerTier::T0_READ_ONLY);
 }
+
+TEST(StatusCapabilityTest, ReflectsLiveEngineState) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::STATUS, "", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("Engine: running"), std::string::npos);
+    EXPECT_NE(result->find("Last command: none"), std::string::npos);
+}
+
+TEST(StatusCapabilityTest, IsPowerTierT0) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    const Capability* status = registry.resolve(CommandType::STATUS);
+    ASSERT_NE(status, nullptr);
+    EXPECT_EQ(status->powerTier, PowerTier::T0_READ_ONLY);
+}

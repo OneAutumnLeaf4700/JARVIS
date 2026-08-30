@@ -1,5 +1,10 @@
 #include "capability_registry.h"
 
+#include <iomanip>
+#include <sstream>
+
+#include "engine.h"
+
 void CapabilityRegistry::registerCapability(Capability capability) {
     capabilities_[capability.intent] = std::move(capability);
 }
@@ -49,7 +54,33 @@ Capability makeAboutCapability() {
     };
 }
 
+Capability makeStatusCapability() {
+    return Capability{
+        "status",
+        CommandType::STATUS,
+        "Shows engine state, uptime, and last command. Usage: status",
+        PowerTier::T0_READ_ONLY,
+        [](const std::string& /*payload*/, ExecutionContext& context) -> std::string {
+            StatusInfo info = context.engine.getStatusInfo();
+
+            const long hours   = info.uptimeSeconds / 3600;
+            const long minutes = (info.uptimeSeconds % 3600) / 60;
+            const long seconds = info.uptimeSeconds % 60;
+
+            std::ostringstream out;
+            out << "Engine: " << (info.running ? "running" : "stopped") << "\n";
+            out << "Uptime: "
+                << std::setfill('0') << std::setw(2) << hours   << ":"
+                << std::setw(2)      << minutes << ":"
+                << std::setw(2)      << seconds << "\n";
+            out << "Last command: " << info.lastCommand;
+            return out.str();
+        }
+    };
+}
+
 void registerBuiltinCapabilities(CapabilityRegistry& registry) {
     registry.registerCapability(makeEchoCapability());
     registry.registerCapability(makeAboutCapability());
+    registry.registerCapability(makeStatusCapability());
 }
