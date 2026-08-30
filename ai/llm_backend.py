@@ -28,6 +28,10 @@ JARVIS currently understands exactly these commands:
 - ECHO: the user wants JARVIS to repeat/say something back.
 - ABOUT: the user is asking who or what JARVIS is.
 
+If the user is asking a question about one of these commands (e.g. what it does, how it \
+works) rather than actually using it, that is NOT a match for that command — respond \
+UNKNOWN instead.
+
 Given the user's message below, decide which single intent it matches, or UNKNOWN if it \
 matches none of them. Respond with ONLY a JSON object of the exact form:
 {{"intent": "STATUS" | "ECHO" | "ABOUT" | "UNKNOWN", "confidence": <number between 0.0 and 1.0>}}
@@ -69,6 +73,10 @@ def llm_classify(text: str) -> tuple[str, float]:
         return "UNKNOWN", 0.0
 
     latency_ms = (time.monotonic() - start) * 1000
+
+    if intent == "UNKNOWN":
+        logger.info("llm_classify intent=UNKNOWN latency_ms=%.2f", latency_ms)
+        return "UNKNOWN", 0.0
 
     if intent not in KNOWN_INTENTS:
         logger.warning(
