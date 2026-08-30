@@ -11,7 +11,6 @@
 //Maps command strings to their corresponding CommandType
 static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
     {"echo", CommandType::ECHO},
-    {"unknown", CommandType::UNKNOWN},
     {"exit", CommandType::EXIT},
     {"help", CommandType::HELP},
     {"about", CommandType::ABOUT},

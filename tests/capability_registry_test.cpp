@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "capability_registry.h"
+#include "command_handler.h"
 #include "engine.h"
 
 TEST(CapabilityRegistryTest, ResolveReturnsNullForUnregisteredIntent) {
@@ -114,6 +115,15 @@ TEST(BuiltinCapabilitiesTest, RegistersExactlyFourExpectedCapabilities) {
     EXPECT_EQ(registry.resolve(CommandType::UNKNOWN), nullptr);
 }
 
+TEST(HelpCapabilityTest, IsPowerTierT0) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    const Capability* help = registry.resolve(CommandType::HELP);
+    ASSERT_NE(help, nullptr);
+    EXPECT_EQ(help->powerTier, PowerTier::T0_READ_ONLY);
+}
+
 TEST(HelpCapabilityTest, ListsAllFourBuiltinsWithoutHardcodingThem) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
@@ -176,4 +186,15 @@ TEST(HelpCapabilityTest, SpecificCommandLookupReportsNotFoundForUnregistered) {
 
     ASSERT_TRUE(result.has_value());
     EXPECT_NE(result->find("Command not found"), std::string::npos);
+}
+
+TEST(CapabilityRegistryTest, RegisteredCapabilityNamesMatchParser) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    for (const auto& [cmdType, capability] : registry.all()) {
+        ParsedCommand parsed = parseCommand(capability.name);
+        EXPECT_EQ(parsed.type, capability.intent)
+            << "Capability '" << capability.name << "' does not parse to its declared intent";
+    }
 }

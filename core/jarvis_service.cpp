@@ -1,8 +1,6 @@
 #include "jarvis_service.h"
 
-#include <iomanip>
 #include <optional>
-#include <sstream>
 #include <spdlog/spdlog.h>
 
 // Constructor — takes the Engine (for STATUS), the AI client (for UNKNOWN commands), and the
