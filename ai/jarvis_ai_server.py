@@ -14,7 +14,7 @@ if str(GENERATED_PY) not in sys.path:
 import ai_pb2
 import ai_pb2_grpc
 
-from intent_classifier import classify
+from resolver import resolve
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,12 +26,12 @@ logger = logging.getLogger("jarvis_ai_server")
 class JarvisAIServicer(ai_pb2_grpc.JarvisAIServiceServicer):
     def ProcessNaturalLanguage(self, request, context):
         start = time.monotonic()
-        intent, confidence = classify(request.text)
+        intent, confidence, tier = resolve(request.text)
         latency_ms = (time.monotonic() - start) * 1000
 
         logger.info(
-            "text=%r intent=%s confidence=%.2f latency_ms=%.2f",
-            request.text, intent, confidence, latency_ms,
+            "text=%r tier=%s intent=%s confidence=%.2f latency_ms=%.2f",
+            request.text, tier, intent, confidence, latency_ms,
         )
 
         reply = f"[detected intent: {intent}, confidence {confidence:.2f}]"
