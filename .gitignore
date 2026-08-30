@@ -30,6 +30,10 @@ env/
 # Generated files
 generated/
 
+# start_jarvis.sh server logs
+.jarvis-ai-server.log
+.jarvis-grpc-server.log
+
 #TODO list
 TODO.md
 
