@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 
+#include <spdlog/spdlog.h>
+
 #include "capability_registry.h"
 #include "engine.h"
 #include "plugin_config.h"
@@ -49,7 +51,11 @@ int runGrantFlow(const std::string& capabilityName, const CapabilityRegistry& re
     }
 
     PluginConfig config = PluginConfig::load("config/capabilities.cfg", "config/consent_grants.cfg");
-    config.grant(capabilityName);
+    if (!config.grant(capabilityName)) {
+        std::cout << "Failed to persist grant for '" << capabilityName
+                   << "' — check that the config directory is writable.\n";
+        return 1;
+    }
     std::cout << "Granted.\n";
     return 0;
 }
@@ -57,11 +63,18 @@ int runGrantFlow(const std::string& capabilityName, const CapabilityRegistry& re
 }  // namespace
 
 int main(int argc, char** argv) {
+    spdlog::set_level(spdlog::level::info);
+    spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
+
     Engine engine;
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
-    if (argc == 3 && std::string(argv[1]) == "--grant") {
+    if (argc >= 2 && std::string(argv[1]) == "--grant") {
+        if (argc != 3) {
+            std::cout << "Usage: jarvis --grant <capability_name>\n";
+            return 1;
+        }
         return runGrantFlow(argv[2], registry);
     }
 

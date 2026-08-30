@@ -32,6 +32,10 @@ class CapabilityRegistry {
     // For `help` to enumerate what's registered, and for tests.
     const std::unordered_map<CommandType, Capability>& all() const;
 
+    // For `help` to filter out disabled capabilities (nullptr if setPluginConfig() was never
+    // called — same "no gating" default as dispatch()).
+    const PluginConfig* pluginConfig() const;
+
  private:
     std::unordered_map<CommandType, Capability> capabilities_;
     const PluginConfig* pluginConfig_ = nullptr;

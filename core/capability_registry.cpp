@@ -52,6 +52,10 @@ const std::unordered_map<CommandType, Capability>& CapabilityRegistry::all() con
     return capabilities_;
 }
 
+const PluginConfig* CapabilityRegistry::pluginConfig() const {
+    return pluginConfig_;
+}
+
 Capability makeEchoCapability() {
     return Capability{
         "echo",
@@ -110,9 +114,17 @@ Capability makeHelpCapability() {
         [](const std::string& payload, ExecutionContext& context) -> std::string {
             std::ostringstream out;
 
+            const PluginConfig* pluginConfig = context.registry.pluginConfig();
+            auto isDisabled = [pluginConfig](const Capability& capability) {
+                return pluginConfig != nullptr && !pluginConfig->isEnabled(capability.name);
+            };
+
             if (payload.empty()) {
                 out << "Available commands:\n";
                 for (const auto& [intent, capability] : context.registry.all()) {
+                    if (isDisabled(capability)) {
+                        continue;
+                    }
                     out << "  - " << capability.name << ": " << capability.description << "\n";
                 }
                 // exit stays outside the registry (engine-lifecycle control, not a
@@ -129,7 +141,7 @@ Capability makeHelpCapability() {
             }
 
             for (const auto& [intent, capability] : context.registry.all()) {
-                if (capability.name == commandName) {
+                if (capability.name == commandName && !isDisabled(capability)) {
                     out << capability.name << ": " << capability.description;
                     return out.str();
                 }

@@ -54,6 +54,21 @@ PluginConfig PluginConfig::load(const std::string& capabilitiesPath, const std::
     PluginConfig config;
     config.grantsPath_ = grantsPath;
 
+    {
+        std::ifstream probe(capabilitiesPath);
+        if (!probe.is_open()) {
+            spdlog::info("PluginConfig: no capabilities file at '{}', all capabilities default to enabled",
+                capabilitiesPath);
+        }
+    }
+    {
+        std::ifstream probe(grantsPath);
+        if (!probe.is_open()) {
+            spdlog::info("PluginConfig: no grants file at '{}', all capabilities default to not-granted",
+                grantsPath);
+        }
+    }
+
     parseKeyValueFile(capabilitiesPath,
         [&config, &capabilitiesPath](const std::string& name, const std::string& field, const std::string& value) {
             if (field == "enabled") {
@@ -91,9 +106,17 @@ bool PluginConfig::isGranted(const std::string& capabilityName) const {
     return it->second;
 }
 
-void PluginConfig::grant(const std::string& capabilityName) {
+bool PluginConfig::grant(const std::string& capabilityName) {
+    if (isGranted(capabilityName)) {
+        // Already granted in memory (and therefore already on disk from a prior grant() call
+        // in this process, or from the file this config was loaded from) — skip the duplicate
+        // append.
+        return true;
+    }
+
     granted_[capabilityName] = true;
 
     std::ofstream file(grantsPath_, std::ios::app);
     file << capabilityName << ".granted=true\n";
+    return file.good();
 }

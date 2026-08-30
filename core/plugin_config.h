@@ -18,8 +18,10 @@ class PluginConfig {
     // Default false if capabilityName is unlisted — fail-closed for consent (INV-9's intent).
     bool isGranted(const std::string& capabilityName) const;
 
-    // Records consent in memory and appends it to the grants file passed to load().
-    void grant(const std::string& capabilityName);
+    // Records consent in memory and appends it to the grants file passed to load(). Returns
+    // true if the grant was successfully persisted to disk, false if the write failed (e.g.
+    // unwritable directory) — the in-memory grant still takes effect either way.
+    bool grant(const std::string& capabilityName);
 
  private:
     std::unordered_map<std::string, bool> enabled_;
