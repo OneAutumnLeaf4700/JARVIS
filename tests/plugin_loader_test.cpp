@@ -368,10 +368,23 @@ TEST(PluginLoaderTest, UnloadRefusesWhileInvocationInFlightThenSucceedsAfterRele
     // touches readyFile as the very first thing it does, and by construction the host
     // trampoline's invocationCount is already incremented before the plugin function is even
     // called) — deterministic readiness signal, not a fixed sleep guess.
-    for (int i = 0; i < 2000 && !std::filesystem::exists(readyFile); ++i) {
+    bool readySignalled = false;
+    for (int i = 0; i < 2000; ++i) {
+        if (std::filesystem::exists(readyFile)) {
+            readySignalled = true;
+            break;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-    ASSERT_TRUE(std::filesystem::exists(readyFile)) << "blocking fixture never signalled readiness";
+    if (!readySignalled) {
+        // Unblock and join the worker before failing so a readiness timeout can never leave a
+        // joinable std::thread to call std::terminate() at scope exit.
+        { std::ofstream release(releaseFile); }
+        worker.join();
+        std::filesystem::remove(readyFile);
+        std::filesystem::remove(releaseFile);
+    }
+    ASSERT_TRUE(readySignalled) << "blocking fixture never signalled readiness";
 
     // Disabling doesn't require zero in-flight calls — only unloading does.
     EXPECT_TRUE(loader.disablePlugin("blocking", registry));
