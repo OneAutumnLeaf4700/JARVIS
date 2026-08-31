@@ -148,13 +148,41 @@ capability sprawl:
    via `PluginConfig::grant()`. Both `core/main.cpp`'s normal startup and
    `core/grpc_server_main.cpp` now load `PluginConfig` and pass it into the registry.
 
-The first capability built on that substrate is **`system-info`**: a T0, read-only local system
-information capability. It proves the end-to-end extension path (parser/proto/Understanding →
-registry → response) without a consent prompt, subprocess, or external dependency. It reports
-compile-time OS, architecture, compiler, C++ standard, and available hardware threads. The
-remaining Phase 4 work can add T1/T2 capabilities onto the same gate.
-The remaining Phase 4 items (runtime `.so` discovery, system control plugin, desktop interaction,
-file search, reminders, media control, calendar) are still 📋 To do — see
-[`features.md`](features.md).
+Next, the plugin SDK & dynamic loader landed, making the substrate above actually load
+capabilities from independently-compiled `.so` files instead of only compiled-in ones:
+
+1. **String-intent dispatch bridge** — `CapabilityRegistry` gained a `std::string`-keyed
+   dispatch path (`namedCapabilities_`, `resolve`/`dispatch(const std::string&)`,
+   `allByIntent()`) alongside its original `CommandType`-keyed one, since a dynamically-loaded
+   plugin has no compile-time enum value. CLI (`core/engine.cpp`) and gRPC
+   (`core/jarvis_service.cpp`, via `normalizeClassifierIntent()`) both fall back to string-intent
+   dispatch when a `CommandType` lookup misses.
+2. **`plugin_sdk/jarvis_plugin_abi.h`** — a pure-C, versioned ABI (`JARVIS_PLUGIN_ABI_VERSION`)
+   every plugin implements: `jarvis_plugin_abi_version()` + `jarvis_plugin_register()`, with a
+   `malloc`/`free` ownership convention for capability return strings across the `.so` boundary
+   (the one allocator convention safe across an independently-compiled shared library).
+3. **`core/minimal_json.h/.cpp`** — a hand-rolled JSON parser scoped to exactly the plugin
+   manifest schema (INV-10: no mature library punched through the spine for something this
+   narrow).
+4. **`core/plugin_loader.h/.cpp`** (`PluginLoader`) — discovers one subdirectory per plugin
+   under each directory listed in `config/plugin_dirs.cfg`, validates `manifest.json` in full
+   (required fields, ABI version, valid power tiers, no duplicate intents — including within the
+   same manifest) *before* ever calling `dlopen`, then stages the plugin's registrations and
+   cross-checks them against the manifest as a true 1:1 match (not just matching counts) before
+   committing anything into the registry. Supports safe, invocation-counted `disablePlugin`/
+   `unloadPlugin`. Must be declared before `CapabilityRegistry` in `main.cpp`/
+   `grpc_server_main.cpp` so it outlives it.
+5. **`system-info` becomes the bundled reference dynamic plugin** (`plugins/system-info/`) —
+   the same T0, read-only local system information capability as before (compile-time OS,
+   architecture, compiler, C++ standard, hardware threads), now loaded from a real `.so` at
+   startup instead of compiled in, proving the whole plugin path end-to-end.
+
+`CapabilityRegistry`'s maps have no internal synchronization — `disablePlugin`/`unloadPlugin`
+must only run before the server begins serving concurrent requests, or from a maintenance path
+that first stops dispatch. This is fine today (nothing calls disable/unload from a live request
+path yet) but is a hard constraint for any future live-reload capability.
+
+The remaining Phase 4 items (system control plugin, desktop interaction, file search, reminders,
+media control, calendar) are still 📋 To do — see [`features.md`](features.md).
 
 See [`features.md`](features.md) for the full phase-by-phase checklist beyond this point.

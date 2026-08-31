@@ -5,15 +5,17 @@ A locally-running, hybrid C++/Python personal assistant — built primarily as a
 JARVIS is intentionally not a thin wrapper around an LLM API. Every layer is built up from primitives so each addition teaches something concrete: parsers, dispatch maps, service boundaries, RPC contracts, schema versioning, structured logging, and so on.
 
 **Status:** Phases 1–3 are complete. JARVIS has a C++ capability registry, a tiered Python
-understanding layer (rules with local Ollama fallback), and optional local voice input/output.
-Phase 4 — runtime plugins, desktop control, and integrations — is next.
+understanding layer (rules with local Ollama fallback), optional local voice input/output, and
+(Phase 4, in progress) a dynamic plugin SDK/loader — desktop control and further integrations
+are next.
 
 ---
 
 ## What works today
 
 - C++ core engine with a stateful CLI loop (`echo`, `help`, `help <command>`, `about`, `status`, `system-info`, `exit`)
-- Registry-based capability dispatch for `echo`, `help`, `about`, `status`, and `system-info`; each capability declares a power tier (all current built-ins are read-only T0)
+- Registry-based capability dispatch for `echo`, `help`, `about`, `status` (compiled-in) and `system-info` (a dynamically-loaded plugin); each capability declares a power tier (all current capabilities are read-only T0)
+- A dynamic plugin SDK/loader (`plugin_sdk/`, `core/plugin_loader.h/.cpp`) — capabilities can ship as independently-compiled `.so` files, manifest-validated and `dlopen`ed at startup, with no changes to `core/` needed to add one
 - Transport-agnostic capability execution — capabilities return strings, so the same dispatch serves the CLI and gRPC service
 - C++ gRPC server on `:50051` exposing the engine via `JarvisService.ProcessCommand`
 - Python gRPC AI server on `:50052` exposing `JarvisAIService.ProcessNaturalLanguage`, with rule-based intent classification and local Ollama escalation on a rule miss
@@ -175,6 +177,67 @@ needs an explicit grant before it will run:
 This is the one interactive consent surface — it prompts `[y/n]` and persists the grant to
 `config/consent_grants.cfg`. T0/T1 capabilities don't need a grant (exits 0 immediately); T3/T4
 enforcement isn't implemented yet (exits 1).
+
+### Plugins
+
+Capabilities can ship as independently-compiled `.so` files instead of being built into
+`jarvis`/`jarvis_grpc_server`. At startup, both binaries read `config/plugin_dirs.cfg` (one
+directory per line, `#` comments allowed — a missing file means no plugin directories are
+scanned) and load every plugin found under each listed directory.
+
+A plugin is a directory containing a `manifest.json` and a shared library:
+
+```
+plugins/system-info/
+├── manifest.json
+└── libsystem_info_plugin.so
+```
+
+`manifest.json` declares the plugin's identity, the ABI version it was built against, its
+library filename, and every capability it registers:
+
+```json
+{
+  "id": "system-info",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libsystem_info_plugin.so",
+  "capabilities": [
+    {
+      "intent": "system-info",
+      "description": "Shows local OS, architecture, compiler, and hardware-thread information.",
+      "power_tier": "T0_READ_ONLY"
+    }
+  ]
+}
+```
+
+The manifest is fully validated (required fields, ABI version, valid power tier names, no
+duplicate intents — including within the manifest itself) *before* the library is ever
+`dlopen`ed. After loading, the plugin's actual registrations are cross-checked against the
+manifest as a true 1:1 match — a plugin can't silently register something it didn't declare, or
+skip something it did.
+
+A plugin implements the pure-C ABI in `plugin_sdk/jarvis_plugin_abi.h`:
+
+```c
+extern "C" int jarvis_plugin_abi_version() {
+    return JARVIS_PLUGIN_ABI_VERSION;
+}
+
+extern "C" int jarvis_plugin_register(void* host_context, const JarvisPluginHost* host) {
+    return host->registerCapability(
+        host_context, "my-intent", "What this capability does.",
+        JARVIS_POWER_TIER_T0_READ_ONLY, &myExecuteFunction);
+}
+```
+
+Each capability function takes a `const char*` payload and returns a `char*` it allocated with
+`malloc` — the host copies it and `free`s it, the one allocator convention that's safe across an
+independently-compiled shared library boundary. `plugins/system-info/` is the reference example;
+`tests/fixtures/plugins/` has minimal fixtures exercising the loader's rejection paths (bad ABI
+version, tier mismatch). See `docs/superpowers/specs/2026-08-31-plugin-sdk-loader-design.md` for
+the full design rationale.
 
 ### Run the full hybrid stack
 
