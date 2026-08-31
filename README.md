@@ -161,6 +161,21 @@ This produces two binaries:
 
 Try `help`, `echo hi`, `status`, `about`, `exit`.
 
+### Plugin manager: enable/disable and T2 consent
+
+`config/capabilities.cfg` and `config/consent_grants.cfg` (both optional — a missing file just
+means every capability defaults to enabled / not-granted) hold `<name>.enabled=true` and
+`<name>.granted=true` lines respectively. A capability declared power tier T2 (system-affecting)
+needs an explicit grant before it will run:
+
+```bash
+./build/jarvis --grant <capability_name>
+```
+
+This is the one interactive consent surface — it prompts `[y/n]` and persists the grant to
+`config/consent_grants.cfg`. T0/T1 capabilities don't need a grant (exits 0 immediately); T3/T4
+enforcement isn't implemented yet (exits 1).
+
 ### Run the full hybrid stack
 
 In three separate terminals:

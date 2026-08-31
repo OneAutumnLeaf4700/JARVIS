@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "command_handler.h"
+#include "consent_gate.h"
 #include "engine.h"
 
 static const std::string kExitDescription =
@@ -11,6 +12,10 @@ static const std::string kExitDescription =
 
 void CapabilityRegistry::registerCapability(Capability capability) {
     capabilities_[capability.intent] = std::move(capability);
+}
+
+void CapabilityRegistry::setPluginConfig(const PluginConfig* pluginConfig) {
+    pluginConfig_ = pluginConfig;
 }
 
 const Capability* CapabilityRegistry::resolve(CommandType intent) const {
@@ -27,11 +32,28 @@ std::optional<std::string> CapabilityRegistry::dispatch(
     if (!capability) {
         return std::nullopt;
     }
+
+    if (pluginConfig_ != nullptr) {
+        if (!pluginConfig_->isEnabled(capability->name)) {
+            return std::nullopt;
+        }
+
+        ConsentGate gate(*pluginConfig_);
+        ConsentResult consent = gate.check(*capability);
+        if (!consent.allowed) {
+            return consent.reason;
+        }
+    }
+
     return capability->execute(payload, context);
 }
 
 const std::unordered_map<CommandType, Capability>& CapabilityRegistry::all() const {
     return capabilities_;
+}
+
+const PluginConfig* CapabilityRegistry::pluginConfig() const {
+    return pluginConfig_;
 }
 
 Capability makeEchoCapability() {
@@ -92,9 +114,17 @@ Capability makeHelpCapability() {
         [](const std::string& payload, ExecutionContext& context) -> std::string {
             std::ostringstream out;
 
+            const PluginConfig* pluginConfig = context.registry.pluginConfig();
+            auto isDisabled = [pluginConfig](const Capability& capability) {
+                return pluginConfig != nullptr && !pluginConfig->isEnabled(capability.name);
+            };
+
             if (payload.empty()) {
                 out << "Available commands:\n";
                 for (const auto& [intent, capability] : context.registry.all()) {
+                    if (isDisabled(capability)) {
+                        continue;
+                    }
                     out << "  - " << capability.name << ": " << capability.description << "\n";
                 }
                 // exit stays outside the registry (engine-lifecycle control, not a
@@ -111,7 +141,7 @@ Capability makeHelpCapability() {
             }
 
             for (const auto& [intent, capability] : context.registry.all()) {
-                if (capability.name == commandName) {
+                if (capability.name == commandName && !isDisabled(capability)) {
                     out << capability.name << ": " << capability.description;
                     return out.str();
                 }

@@ -5,9 +5,9 @@
 
 #include "command_handler.h"
 
-// A capability's declared risk level. Every capability today is T0 — nothing above T0 exists
-// yet, so there's nothing to build/test real gate-enforcement logic against (see the design
-// spec §1 for why enforcement is deliberately deferred).
+// A capability's declared risk level. T0/T1 always run unconditionally; T2 is enforced via
+// ConsentGate (requires a recorded grant, see core/consent_gate.h); T3/T4 enforcement is not
+// yet implemented — ConsentGate denies them unconditionally until it lands.
 enum class PowerTier {
     T0_READ_ONLY,
     T1_STATEFUL_LOCAL,

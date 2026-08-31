@@ -50,8 +50,11 @@ void Engine::run(CapabilityRegistry& registry) {
             if (!output->empty()) {
                 std::cout << *output << std::endl;
             }
-        } else {
+        } else if (parsed.type == CommandType::UNKNOWN) {
             std::cout << runUnknown() << std::endl;
+        } else {
+            // Resolved command, but disabled — a distinct outcome from "unrecognised" (INV-7).
+            std::cout << "Command is currently unavailable." << std::endl;
         }
     }
 }

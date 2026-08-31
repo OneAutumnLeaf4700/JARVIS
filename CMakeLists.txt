@@ -36,12 +36,15 @@ add_executable(
     core/command_handler.cpp
     core/engine.cpp
     core/capability_registry.cpp
+    core/plugin_config.cpp
+    core/consent_gate.cpp
 )
 
 target_link_libraries(
     jarvis
     PRIVATE
     jarvis_proto
+    spdlog::spdlog
 )
 
 add_library(
@@ -69,6 +72,8 @@ add_executable(
     core/command_handler.cpp
     core/engine.cpp
     core/capability_registry.cpp
+    core/plugin_config.cpp
+    core/consent_gate.cpp
     core/ai_client.cpp
     core/jarvis_service.cpp
 )
@@ -84,9 +89,13 @@ target_link_libraries(
 add_executable(
     jarvis_tests
     tests/capability_registry_test.cpp
+    tests/plugin_config_test.cpp
+    tests/consent_gate_test.cpp
     core/capability_registry.cpp
     core/command_handler.cpp
     core/engine.cpp
+    core/plugin_config.cpp
+    core/consent_gate.cpp
 )
 
 target_include_directories(
@@ -99,6 +108,7 @@ target_link_libraries(
     jarvis_tests
     PRIVATE
     GTest::gtest_main
+    spdlog::spdlog
 )
 
 include(GoogleTest)

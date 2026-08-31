@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "capability.h"
+#include "plugin_config.h"
 
 // Resolves an intent (CommandType) to the capability that handles it. Replaces the old
 // hardcoded COMMAND_DISPATCH/COMMAND_DESCRIPTIONS maps in command_handler.cpp — capabilities
@@ -23,11 +24,21 @@ class CapabilityRegistry {
     std::optional<std::string> dispatch(CommandType intent, const std::string& payload,
                                          ExecutionContext& context) const;
 
+    // Wires plugin enable/disable + T2 consent gating into dispatch(). Not calling this at all
+    // (pluginConfig_ stays nullptr) means dispatch() behaves exactly as it did before this
+    // feature existed — every existing caller and test keeps working unmodified.
+    void setPluginConfig(const PluginConfig* pluginConfig);
+
     // For `help` to enumerate what's registered, and for tests.
     const std::unordered_map<CommandType, Capability>& all() const;
 
+    // For `help` to filter out disabled capabilities (nullptr if setPluginConfig() was never
+    // called — same "no gating" default as dispatch()).
+    const PluginConfig* pluginConfig() const;
+
  private:
     std::unordered_map<CommandType, Capability> capabilities_;
+    const PluginConfig* pluginConfig_ = nullptr;
 };
 
 // One explicit call site registers every built-in capability. Adding a new one means writing

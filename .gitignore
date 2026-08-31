@@ -34,6 +34,14 @@ generated/
 .jarvis-ai-server.log
 .jarvis-grpc-server.log
 
+# Per-machine T2 consent grants — never shared across machines
+config/consent_grants.cfg
+
+# Litter left in the repo root by tests/plugin_config_test.cpp (plain functions writing to
+# relative paths, not fixture-cleaned) and other test files' temp grant files
+/test_*.cfg
+/temp_grants_*.cfg
+
 # Voice configuration (user-specific)
 voice/voice_config.yaml
 
