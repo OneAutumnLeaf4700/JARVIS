@@ -62,6 +62,10 @@ void CapabilityRegistry::registerCapability(Capability capability) {
     }
 }
 
+bool CapabilityRegistry::unregisterCapability(const std::string& intentName) {
+    return namedCapabilities_.erase(intentName) > 0;
+}
+
 void CapabilityRegistry::setPluginConfig(const PluginConfig* pluginConfig) {
     pluginConfig_ = pluginConfig;
 }

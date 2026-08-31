@@ -39,6 +39,13 @@ add_executable(
     core/plugin_config.cpp
     core/consent_gate.cpp
     core/minimal_json.cpp
+    core/plugin_loader.cpp
+)
+
+target_include_directories(
+    jarvis
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/plugin_sdk
 )
 
 target_link_libraries(
@@ -46,6 +53,7 @@ target_link_libraries(
     PRIVATE
     jarvis_proto
     spdlog::spdlog
+    ${CMAKE_DL_LIBS}
 )
 
 add_library(
@@ -78,6 +86,13 @@ add_executable(
     core/ai_client.cpp
     core/jarvis_service.cpp
     core/minimal_json.cpp
+    core/plugin_loader.cpp
+)
+
+target_include_directories(
+    jarvis_grpc_server
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/plugin_sdk
 )
 
 target_link_libraries(
@@ -86,6 +101,7 @@ target_link_libraries(
     jarvis_proto
     jarvis_ai_proto
     spdlog::spdlog
+    ${CMAKE_DL_LIBS}
 )
 
 add_executable(
@@ -94,18 +110,21 @@ add_executable(
     tests/plugin_config_test.cpp
     tests/consent_gate_test.cpp
     tests/minimal_json_test.cpp
+    tests/plugin_loader_test.cpp
     core/capability_registry.cpp
     core/command_handler.cpp
     core/engine.cpp
     core/plugin_config.cpp
     core/consent_gate.cpp
     core/minimal_json.cpp
+    core/plugin_loader.cpp
 )
 
 target_include_directories(
     jarvis_tests
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_SOURCE_DIR}/plugin_sdk
 )
 
 target_link_libraries(
@@ -113,6 +132,7 @@ target_link_libraries(
     PRIVATE
     GTest::gtest_main
     spdlog::spdlog
+    ${CMAKE_DL_LIBS}
 )
 
 include(GoogleTest)

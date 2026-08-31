@@ -14,6 +14,13 @@ class CapabilityRegistry {
  public:
     void registerCapability(Capability capability);
 
+    // Removes a capability from the string-intent dispatch path only (loaded plugins never
+    // have a CommandType, so this has no effect on the enum-keyed path). Returns true if a
+    // capability with this intent name was actually removed. Used by PluginLoader when
+    // disabling a plugin — a separate, coarser, in-memory-only mechanism from PluginConfig's
+    // persistent, config-file-driven enable/disable, which still applies independently.
+    bool unregisterCapability(const std::string& intentName);
+
     // Extensible dispatch path for runtime plugins. Unlike CommandType, an intent name can be
     // introduced by a shared library without changing the core binary or protobuf enum.
     const Capability* resolve(const std::string& intentName) const;
