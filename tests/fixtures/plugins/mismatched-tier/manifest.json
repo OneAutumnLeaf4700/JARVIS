@@ -1,0 +1,13 @@
+{
+  "id": "mismatched-tier",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libmismatched_tier_fixture.so",
+  "capabilities": [
+    {
+      "intent": "fixture-mismatched",
+      "description": "Test fixture: tier mismatch.",
+      "power_tier": "T0_READ_ONLY"
+    }
+  ]
+}

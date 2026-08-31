@@ -256,3 +256,107 @@ TEST(PluginLoaderTest, DisableAndUnloadOnUnknownPluginIdReturnFalse) {
     EXPECT_FALSE(loader.disablePlugin("nonexistent", registry));
     EXPECT_FALSE(loader.unloadPlugin("nonexistent"));
 }
+
+namespace {
+
+// tests/fixtures/plugins/<name>/ (populated at build time by CMakeLists.txt's
+// add_custom_command copy steps) are siblings under one shared parent directory, so
+// loadFromDirectory() on that shared parent picks up ALL THREE fixtures at once rather than
+// just one — the plan this file was generated from assumed each fixture's parent directory
+// would contain only that one fixture, which isn't true here. Isolate exactly one fixture by
+// symlinking its build-output directory (absolute path via the JARVIS_TEST_FIXTURES_DIR
+// compile definition, so this works regardless of the test binary's working directory) into a
+// throwaway directory of its own.
+std::string IsolateFixture(const std::string& fixtureName) {
+    const std::filesystem::path isolationParent =
+        std::filesystem::temp_directory_path() / ("jarvis_fixture_isolation_" + fixtureName);
+    std::filesystem::remove_all(isolationParent);
+    std::filesystem::create_directories(isolationParent);
+    std::filesystem::create_directory_symlink(
+        std::filesystem::path(JARVIS_TEST_FIXTURES_DIR) / fixtureName,
+        isolationParent / fixtureName);
+    return isolationParent.string();
+}
+
+}  // namespace
+
+TEST(PluginLoaderTest, LoadsDispatchesAndCallsRealValidFixturePlugin) {
+    CapabilityRegistry registry;
+    PluginLoader loader;
+
+    const std::string isolatedDir = IsolateFixture("valid-echo");
+    std::vector<PluginLoadResult> results = loader.loadFromDirectory(isolatedDir, registry);
+    std::filesystem::remove_all(isolatedDir);
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].loaded);
+    EXPECT_EQ(results[0].pluginId, "valid-echo");
+    ASSERT_EQ(loader.loadedPluginIds().size(), 1u);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> dispatchResult =
+        registry.dispatch(std::string("fixture-echo"), "hello fixture", context);
+
+    ASSERT_TRUE(dispatchResult.has_value());
+    EXPECT_EQ(*dispatchResult, "hello fixture");
+}
+
+TEST(PluginLoaderTest, DisableThenUnloadRealValidFixturePlugin) {
+    CapabilityRegistry registry;
+    PluginLoader loader;
+    const std::string isolatedDir = IsolateFixture("valid-echo");
+    loader.loadFromDirectory(isolatedDir, registry);
+    std::filesystem::remove_all(isolatedDir);
+
+    ASSERT_NE(registry.resolve(std::string("fixture-echo")), nullptr);
+
+    EXPECT_TRUE(loader.disablePlugin("valid-echo", registry));
+    EXPECT_EQ(registry.resolve(std::string("fixture-echo")), nullptr);
+
+    EXPECT_TRUE(loader.unloadPlugin("valid-echo"));
+    EXPECT_TRUE(loader.loadedPluginIds().empty());
+
+    // Idempotency: can't disable/unload twice.
+    EXPECT_FALSE(loader.disablePlugin("valid-echo", registry));
+    EXPECT_FALSE(loader.unloadPlugin("valid-echo"));
+}
+
+TEST(PluginLoaderTest, UnloadRefusesBeforeDisable) {
+    CapabilityRegistry registry;
+    PluginLoader loader;
+    const std::string isolatedDir = IsolateFixture("valid-echo");
+    loader.loadFromDirectory(isolatedDir, registry);
+    std::filesystem::remove_all(isolatedDir);
+
+    EXPECT_FALSE(loader.unloadPlugin("valid-echo"));  // still enabled — refuse
+}
+
+TEST(PluginLoaderTest, RejectsRealBadAbiFixtureAfterDlopen) {
+    CapabilityRegistry registry;
+    PluginLoader loader;
+
+    const std::string isolatedDir = IsolateFixture("bad-abi");
+    std::vector<PluginLoadResult> results = loader.loadFromDirectory(isolatedDir, registry);
+    std::filesystem::remove_all(isolatedDir);
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].loaded);
+    EXPECT_NE(results[0].reason.find("runtime ABI"), std::string::npos);
+    EXPECT_TRUE(registry.allByIntent().empty());
+}
+
+TEST(PluginLoaderTest, RejectsRealMismatchedTierFixtureAndRollsBackNothingCommitted) {
+    CapabilityRegistry registry;
+    PluginLoader loader;
+
+    const std::string isolatedDir = IsolateFixture("mismatched-tier");
+    std::vector<PluginLoadResult> results = loader.loadFromDirectory(isolatedDir, registry);
+    std::filesystem::remove_all(isolatedDir);
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].loaded);
+    EXPECT_NE(results[0].reason.find("do not match manifest"), std::string::npos);
+    // Nothing from the rejected plugin ends up dispatchable, at either tier.
+    EXPECT_EQ(registry.resolve(std::string("fixture-mismatched")), nullptr);
+}

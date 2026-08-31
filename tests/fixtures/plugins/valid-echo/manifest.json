@@ -1,0 +1,13 @@
+{
+  "id": "valid-echo",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libvalid_echo_fixture.so",
+  "capabilities": [
+    {
+      "intent": "fixture-echo",
+      "description": "Test fixture: echoes payload back.",
+      "power_tier": "T0_READ_ONLY"
+    }
+  ]
+}

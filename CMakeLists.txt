@@ -135,5 +135,37 @@ target_link_libraries(
     ${CMAKE_DL_LIBS}
 )
 
+add_library(valid_echo_fixture SHARED tests/fixtures/plugins/valid-echo/plugin.cpp)
+target_include_directories(valid_echo_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
+set_target_properties(valid_echo_fixture PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/valid-echo)
+add_custom_command(TARGET valid_echo_fixture POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/valid-echo/manifest.json
+        ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/valid-echo/manifest.json)
+
+add_library(bad_abi_fixture SHARED tests/fixtures/plugins/bad-abi/plugin.cpp)
+target_include_directories(bad_abi_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
+set_target_properties(bad_abi_fixture PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/bad-abi)
+add_custom_command(TARGET bad_abi_fixture POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/bad-abi/manifest.json
+        ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/bad-abi/manifest.json)
+
+add_library(mismatched_tier_fixture SHARED tests/fixtures/plugins/mismatched-tier/plugin.cpp)
+target_include_directories(mismatched_tier_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
+set_target_properties(mismatched_tier_fixture PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/mismatched-tier)
+add_custom_command(TARGET mismatched_tier_fixture POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/mismatched-tier/manifest.json
+        ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/mismatched-tier/manifest.json)
+
+add_dependencies(jarvis_tests valid_echo_fixture bad_abi_fixture mismatched_tier_fixture)
+
+target_compile_definitions(jarvis_tests PRIVATE
+    JARVIS_TEST_FIXTURES_DIR="${CMAKE_BINARY_DIR}/tests/fixtures/plugins")
+
 include(GoogleTest)
 gtest_discover_tests(jarvis_tests)

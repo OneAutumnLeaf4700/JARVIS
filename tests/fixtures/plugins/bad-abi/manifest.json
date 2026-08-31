@@ -1,0 +1,7 @@
+{
+  "id": "bad-abi",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libbad_abi_fixture.so",
+  "capabilities": []
+}
