@@ -1,7 +1,23 @@
 #include "jarvis_service.h"
 
+#include <cctype>
 #include <optional>
 #include <spdlog/spdlog.h>
+
+namespace {
+// Bridges the Understanding tier's SCREAMING_SNAKE intent labels ("SYSTEM_INFO") onto the
+// registry's lowercase-kebab intent names ("system-info") — the one general mapping needed so
+// a plugin-only capability (no CommandType) is still reachable through natural-language
+// classification, without hardcoding each intent name here one at a time.
+std::string normalizeClassifierIntent(const std::string& intent) {
+  std::string result;
+  result.reserve(intent.size());
+  for (char c : intent) {
+    result += (c == '_') ? '-' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+  return result;
+}
+}  // namespace
 
 // Constructor — takes the Engine (for STATUS), the AI client (for UNKNOWN commands), and the
 // CapabilityRegistry (for dispatching every known command, including a classified UNKNOWN).
@@ -68,15 +84,23 @@ JarvisServiceImpl::~JarvisServiceImpl() {
 
     constexpr float kConfidenceThreshold = 0.5f;
     CommandType classifiedCmd = intentToCommandType(aiResult.intent);
+    std::string normalizedIntent = normalizeClassifierIntent(aiResult.intent);
+    bool stringIntentKnown = classifiedCmd == CommandType::UNKNOWN &&
+        registry_.resolve(normalizedIntent) != nullptr;
 
-    if (aiResult.success && classifiedCmd != CommandType::UNKNOWN &&
-        aiResult.confidence >= kConfidenceThreshold) {
+    if (aiResult.success && aiResult.confidence >= kConfidenceThreshold &&
+        (classifiedCmd != CommandType::UNKNOWN || stringIntentKnown)) {
       spdlog::info("ProcessCommand: AI classified intent={} confidence={:.2f}, re-dispatching",
           aiResult.intent, aiResult.confidence);
-      internalCmd = classifiedCmd;
-      dispatchResult = registry_.dispatch(classifiedCmd, payload, execContext);
-      if (const Capability* capability = registry_.resolve(classifiedCmd)) {
-        intentName = capability->intentName;
+      if (classifiedCmd != CommandType::UNKNOWN) {
+        internalCmd = classifiedCmd;
+        dispatchResult = registry_.dispatch(classifiedCmd, payload, execContext);
+        if (const Capability* capability = registry_.resolve(classifiedCmd)) {
+          intentName = capability->intentName;
+        }
+      } else {
+        intentName = normalizedIntent;
+        dispatchResult = registry_.dispatch(normalizedIntent, payload, execContext);
       }
       dispatchFailed = !dispatchResult.has_value();
       output = dispatchResult.value_or("Command is currently unavailable.");
@@ -117,8 +141,6 @@ CommandType JarvisServiceImpl::protoCommandToInternal(jarvis::v1::CommandType pr
       return CommandType::ABOUT;
     case jarvis::v1::COMMAND_TYPE_STATUS:
       return CommandType::STATUS;
-    case jarvis::v1::COMMAND_TYPE_SYSTEM_INFO:
-      return CommandType::SYSTEM_INFO;
     case jarvis::v1::COMMAND_TYPE_UNSPECIFIED:
     default:
       return CommandType::UNKNOWN;
@@ -140,8 +162,6 @@ jarvis::v1::CommandType JarvisServiceImpl::internalCommandToProto(CommandType in
       return jarvis::v1::COMMAND_TYPE_ABOUT;
     case CommandType::STATUS:
       return jarvis::v1::COMMAND_TYPE_STATUS;
-    case CommandType::SYSTEM_INFO:
-      return jarvis::v1::COMMAND_TYPE_SYSTEM_INFO;
     default:
       return jarvis::v1::COMMAND_TYPE_UNSPECIFIED;
   }
@@ -152,7 +172,6 @@ CommandType JarvisServiceImpl::intentToCommandType(const std::string& intent) {
   if (intent == "STATUS") return CommandType::STATUS;
   if (intent == "ECHO") return CommandType::ECHO;
   if (intent == "ABOUT") return CommandType::ABOUT;
-  if (intent == "SYSTEM_INFO") return CommandType::SYSTEM_INFO;
   return CommandType::UNKNOWN;
 }
 

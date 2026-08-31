@@ -30,7 +30,11 @@ KNOWN_COMMANDS = {
     "status": jarvis_pb2.COMMAND_TYPE_STATUS,
     "about": jarvis_pb2.COMMAND_TYPE_ABOUT,
     "help": jarvis_pb2.COMMAND_TYPE_HELP,
-    "system-info": jarvis_pb2.COMMAND_TYPE_SYSTEM_INFO,
+}
+
+# Commands with no CommandType enum value — reachable only through the intent field.
+KNOWN_INTENTS = {
+    "system-info": "system-info",
 }
 
 
@@ -43,9 +47,13 @@ def parse_line(line: str):
 
     if first_word in KNOWN_COMMANDS:
         payload = stripped[len(first_word):].strip()
-        return KNOWN_COMMANDS[first_word], payload
+        return jarvis_pb2.ExecuteCommandRequest(command=KNOWN_COMMANDS[first_word], payload=payload)
 
-    return jarvis_pb2.COMMAND_TYPE_UNKNOWN, stripped
+    if first_word in KNOWN_INTENTS:
+        payload = stripped[len(first_word):].strip()
+        return jarvis_pb2.ExecuteCommandRequest(intent=KNOWN_INTENTS[first_word], payload=payload)
+
+    return jarvis_pb2.ExecuteCommandRequest(command=jarvis_pb2.COMMAND_TYPE_UNKNOWN, payload=stripped)
 
 
 def main():
@@ -70,8 +78,7 @@ def main():
             print("Goodbye.")
             break
 
-        command, payload = parse_line(line)
-        request = jarvis_pb2.ExecuteCommandRequest(command=command, payload=payload)
+        request = parse_line(line)
 
         try:
             response = stub.ProcessCommand(request, timeout=10)

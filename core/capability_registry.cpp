@@ -190,7 +190,7 @@ Capability makeStatusCapability() {
 Capability makeSystemInfoCapability() {
     return Capability{
         "system-info",
-        CommandType::SYSTEM_INFO,
+        CommandType::UNKNOWN,
         "Shows local OS, architecture, compiler, and hardware-thread information. Usage: system-info",
         PowerTier::T0_READ_ONLY,
         [](const std::string& /*payload*/, ExecutionContext& /*context*/) -> std::string {
@@ -228,7 +228,7 @@ Capability makeHelpCapability() {
 
             if (payload.empty()) {
                 out << "Available commands:\n";
-                for (const auto& [intent, capability] : context.registry.all()) {
+                for (const auto& [intent, capability] : context.registry.allByIntent()) {
                     if (isDisabled(capability)) {
                         continue;
                     }
@@ -247,7 +247,7 @@ Capability makeHelpCapability() {
                 return "exit: " + kExitDescription;
             }
 
-            for (const auto& [intent, capability] : context.registry.all()) {
+            for (const auto& [intent, capability] : context.registry.allByIntent()) {
                 if (capability.name == commandName && !isDisabled(capability)) {
                     out << capability.name << ": " << capability.description;
                     return out.str();

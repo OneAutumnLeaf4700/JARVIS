@@ -28,10 +28,10 @@ void Engine::run(CapabilityRegistry& registry) {
         std::getline(std::cin, input);
 
         ParsedCommand parsed = parseCommand(input);
+        std::string commandName = extractCommandName(input);
 
         //Update last command tracker to current command
         if (parsed.type != CommandType::STATUS) {
-            std::string commandName = extractCommandName(input);
             if (!commandName.empty()) {
                 lastCommand = commandName;
             }
@@ -46,11 +46,19 @@ void Engine::run(CapabilityRegistry& registry) {
         ExecutionContext context{*this, registry};
         std::optional<std::string> output = registry.dispatch(parsed.type, parsed.payload, context);
 
+        // A word the CommandType enum doesn't know about might still be a plugin-registered
+        // string intent (e.g. "system-info") — try that before declaring it unrecognised.
+        bool stringIntentKnown = false;
+        if (!output && parsed.type == CommandType::UNKNOWN && !commandName.empty()) {
+            stringIntentKnown = registry.resolve(commandName) != nullptr;
+            output = registry.dispatch(commandName, parsed.payload, context);
+        }
+
         if (output) {
             if (!output->empty()) {
                 std::cout << *output << std::endl;
             }
-        } else if (parsed.type == CommandType::UNKNOWN) {
+        } else if (parsed.type == CommandType::UNKNOWN && !stringIntentKnown) {
             std::cout << runUnknown() << std::endl;
         } else {
             // Resolved command, but disabled — a distinct outcome from "unrecognised" (INV-7).

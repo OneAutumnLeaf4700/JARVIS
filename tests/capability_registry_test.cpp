@@ -114,7 +114,7 @@ TEST(SystemInfoCapabilityTest, ReturnsLocalRuntimeInformation) {
 
     Engine engine;
     ExecutionContext context{engine, registry};
-    std::optional<std::string> result = registry.dispatch(CommandType::SYSTEM_INFO, "", context);
+    std::optional<std::string> result = registry.dispatch(std::string("system-info"), "", context);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_NE(result->find("System information:"), std::string::npos);
@@ -127,22 +127,44 @@ TEST(SystemInfoCapabilityTest, IsPowerTierT0) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
-    const Capability* systemInfo = registry.resolve(CommandType::SYSTEM_INFO);
+    const Capability* systemInfo = registry.resolve(std::string("system-info"));
     ASSERT_NE(systemInfo, nullptr);
     EXPECT_EQ(systemInfo->powerTier, PowerTier::T0_READ_ONLY);
 }
 
-TEST(BuiltinCapabilitiesTest, RegistersExactlyFiveExpectedCapabilities) {
+TEST(SystemInfoCapabilityTest, HasNoCommandTypeEntry) {
+    // system-info is intent-only (proves the string-dispatch bridge, ahead of becoming a
+    // real dynamically-loaded plugin) — it must never appear in the CommandType-keyed map.
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
-    EXPECT_EQ(registry.all().size(), 5u);
+    for (const auto& [commandType, capability] : registry.all()) {
+        EXPECT_NE(capability.name, "system-info");
+    }
+}
+
+TEST(BuiltinCapabilitiesTest, RegistersExactlyFourCommandTypeBackedCapabilities) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    EXPECT_EQ(registry.all().size(), 4u);
     EXPECT_NE(registry.resolve(CommandType::ECHO), nullptr);
     EXPECT_NE(registry.resolve(CommandType::STATUS), nullptr);
     EXPECT_NE(registry.resolve(CommandType::ABOUT), nullptr);
     EXPECT_NE(registry.resolve(CommandType::HELP), nullptr);
-    EXPECT_NE(registry.resolve(CommandType::SYSTEM_INFO), nullptr);
     EXPECT_EQ(registry.resolve(CommandType::UNKNOWN), nullptr);
+}
+
+TEST(BuiltinCapabilitiesTest, RegistersExactlyFiveCapabilitiesByIntentName) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    EXPECT_EQ(registry.allByIntent().size(), 5u);
+    EXPECT_NE(registry.resolve(std::string("echo")), nullptr);
+    EXPECT_NE(registry.resolve(std::string("status")), nullptr);
+    EXPECT_NE(registry.resolve(std::string("about")), nullptr);
+    EXPECT_NE(registry.resolve(std::string("help")), nullptr);
+    EXPECT_NE(registry.resolve(std::string("system-info")), nullptr);
 }
 
 TEST(HelpCapabilityTest, IsPowerTierT0) {
@@ -348,5 +370,5 @@ TEST(CapabilityRegistryPluginGateTest, AllFiveBuiltinsDispatchWithPluginConfigSe
     EXPECT_TRUE(registry.dispatch(CommandType::STATUS, "", context).has_value());
     EXPECT_TRUE(registry.dispatch(CommandType::ABOUT, "", context).has_value());
     EXPECT_TRUE(registry.dispatch(CommandType::HELP, "", context).has_value());
-    EXPECT_TRUE(registry.dispatch(CommandType::SYSTEM_INFO, "", context).has_value());
+    EXPECT_TRUE(registry.dispatch(std::string("system-info"), "", context).has_value());
 }

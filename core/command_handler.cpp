@@ -14,8 +14,7 @@ static const std::unordered_map<std::string, CommandType> COMMAND_MAP = {
     {"exit", CommandType::EXIT},
     {"help", CommandType::HELP},
     {"about", CommandType::ABOUT},
-    {"status", CommandType::STATUS},
-    {"system-info", CommandType::SYSTEM_INFO}
+    {"status", CommandType::STATUS}
 };
 
 //PARSING HELPER FUNCTIONS

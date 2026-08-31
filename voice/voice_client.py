@@ -36,7 +36,11 @@ KNOWN_COMMANDS = {
     "status": jarvis_pb2.COMMAND_TYPE_STATUS,
     "about": jarvis_pb2.COMMAND_TYPE_ABOUT,
     "help": jarvis_pb2.COMMAND_TYPE_HELP,
-    "system-info": jarvis_pb2.COMMAND_TYPE_SYSTEM_INFO,
+}
+
+# Commands with no CommandType enum value — reachable only through the intent field.
+KNOWN_INTENTS = {
+    "system-info": "system-info",
 }
 
 # Matches the literal bracketed format ai/jarvis_ai_server.py emits:
@@ -55,6 +59,10 @@ def build_request(transcript: str) -> "jarvis_pb2.ExecuteCommandRequest":
     if first_word in KNOWN_COMMANDS:
         payload = stripped[len(first_word):].strip()
         return jarvis_pb2.ExecuteCommandRequest(command=KNOWN_COMMANDS[first_word], payload=payload)
+
+    if first_word in KNOWN_INTENTS:
+        payload = stripped[len(first_word):].strip()
+        return jarvis_pb2.ExecuteCommandRequest(intent=KNOWN_INTENTS[first_word], payload=payload)
 
     return jarvis_pb2.ExecuteCommandRequest(command=jarvis_pb2.COMMAND_TYPE_UNKNOWN, payload=stripped)
 

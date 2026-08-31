@@ -40,7 +40,6 @@ enum CommandType {
     COMMAND_TYPE_HELP = 4;
     COMMAND_TYPE_ABOUT = 5;
     COMMAND_TYPE_STATUS = 6;
-    COMMAND_TYPE_SYSTEM_INFO = 7;
 }
 
 //Error codes for command execution debugging and response handling

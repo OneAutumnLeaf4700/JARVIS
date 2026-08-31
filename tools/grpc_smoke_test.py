@@ -29,6 +29,21 @@ def call_command(stub, command, payload, label=None):
     print("-" * 40)
 
 
+def call_intent(stub, intent_name, payload, label=None):
+    # Commands with no CommandType enum value are only reachable through the intent field.
+    request = jarvis_pb2.ExecuteCommandRequest(intent=intent_name, payload=payload)
+
+    response = stub.ProcessCommand(request)
+
+    if label:
+        print(f"[{label}]")
+    print("success:", response.success)
+    print("message:", response.message)
+    print("command_type:", jarvis_pb2.CommandType.Name(response.command_type))
+    print("error_code:", jarvis_pb2.ErrorCode.Name(response.error_code))
+    print("-" * 40)
+
+
 def main():
     channel = grpc.insecure_channel("localhost:50051")
 
@@ -43,7 +58,7 @@ def main():
     call_command(stub, jarvis_pb2.COMMAND_TYPE_ECHO, "hello from python")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_HELP, "")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_STATUS, "")
-    call_command(stub, jarvis_pb2.COMMAND_TYPE_SYSTEM_INFO, "", label="system information")
+    call_intent(stub, "system-info", "", label="system information")
 
     # UNKNOWN commands route to the Python AI server for classification.
     # The server re-dispatches classified intents (STATUS/ECHO/ABOUT) as if the
