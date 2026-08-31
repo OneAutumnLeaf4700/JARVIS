@@ -8,6 +8,7 @@
 #include "consent_gate.h"
 #include "engine.h"
 #include "plugin_config.h"
+#include "plugin_loader.h"
 
 TEST(CapabilityRegistryTest, ResolveReturnsNullForUnregisteredIntent) {
     CapabilityRegistry registry;
@@ -108,9 +109,15 @@ TEST(StatusCapabilityTest, IsPowerTierT0) {
     EXPECT_EQ(status->powerTier, PowerTier::T0_READ_ONLY);
 }
 
-TEST(SystemInfoCapabilityTest, ReturnsLocalRuntimeInformation) {
+TEST(SystemInfoPluginTest, LoadsAndDispatchesViaPluginLoader) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
+    PluginLoader pluginLoader;
+
+    std::vector<PluginLoadResult> results = pluginLoader.loadFromDirectory("plugins", registry);
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].loaded);
+    EXPECT_EQ(results[0].pluginId, "system-info");
 
     Engine engine;
     ExecutionContext context{engine, registry};
@@ -123,24 +130,36 @@ TEST(SystemInfoCapabilityTest, ReturnsLocalRuntimeInformation) {
     EXPECT_NE(result->find("Hardware threads:"), std::string::npos);
 }
 
-TEST(SystemInfoCapabilityTest, IsPowerTierT0) {
+TEST(SystemInfoPluginTest, IsPowerTierT0) {
     CapabilityRegistry registry;
-    registerBuiltinCapabilities(registry);
+    PluginLoader pluginLoader;
+    pluginLoader.loadFromDirectory("plugins", registry);
 
     const Capability* systemInfo = registry.resolve(std::string("system-info"));
     ASSERT_NE(systemInfo, nullptr);
     EXPECT_EQ(systemInfo->powerTier, PowerTier::T0_READ_ONLY);
 }
 
-TEST(SystemInfoCapabilityTest, HasNoCommandTypeEntry) {
-    // system-info is intent-only (proves the string-dispatch bridge, ahead of becoming a
-    // real dynamically-loaded plugin) — it must never appear in the CommandType-keyed map.
+TEST(SystemInfoPluginTest, RegistersNoCommandTypeEntry) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
+    PluginLoader pluginLoader;
+    pluginLoader.loadFromDirectory("plugins", registry);
 
     for (const auto& [commandType, capability] : registry.all()) {
         EXPECT_NE(capability.name, "system-info");
     }
+}
+
+TEST(SystemInfoPluginTest, DisableThenUnload) {
+    CapabilityRegistry registry;
+    PluginLoader pluginLoader;
+    pluginLoader.loadFromDirectory("plugins", registry);
+    ASSERT_NE(registry.resolve(std::string("system-info")), nullptr);
+
+    EXPECT_TRUE(pluginLoader.disablePlugin("system-info", registry));
+    EXPECT_EQ(registry.resolve(std::string("system-info")), nullptr);
+    EXPECT_TRUE(pluginLoader.unloadPlugin("system-info"));
 }
 
 TEST(BuiltinCapabilitiesTest, RegistersExactlyFourCommandTypeBackedCapabilities) {
@@ -155,16 +174,15 @@ TEST(BuiltinCapabilitiesTest, RegistersExactlyFourCommandTypeBackedCapabilities)
     EXPECT_EQ(registry.resolve(CommandType::UNKNOWN), nullptr);
 }
 
-TEST(BuiltinCapabilitiesTest, RegistersExactlyFiveCapabilitiesByIntentName) {
+TEST(BuiltinCapabilitiesTest, RegistersExactlyFourCapabilitiesByIntentName) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
-    EXPECT_EQ(registry.allByIntent().size(), 5u);
+    EXPECT_EQ(registry.allByIntent().size(), 4u);
     EXPECT_NE(registry.resolve(std::string("echo")), nullptr);
     EXPECT_NE(registry.resolve(std::string("status")), nullptr);
     EXPECT_NE(registry.resolve(std::string("about")), nullptr);
     EXPECT_NE(registry.resolve(std::string("help")), nullptr);
-    EXPECT_NE(registry.resolve(std::string("system-info")), nullptr);
 }
 
 TEST(HelpCapabilityTest, IsPowerTierT0) {
@@ -176,7 +194,7 @@ TEST(HelpCapabilityTest, IsPowerTierT0) {
     EXPECT_EQ(help->powerTier, PowerTier::T0_READ_ONLY);
 }
 
-TEST(HelpCapabilityTest, ListsAllFiveBuiltinsWithoutHardcodingThem) {
+TEST(HelpCapabilityTest, ListsAllFourBuiltinsWithoutHardcodingThem) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
@@ -189,7 +207,6 @@ TEST(HelpCapabilityTest, ListsAllFiveBuiltinsWithoutHardcodingThem) {
     EXPECT_NE(result->find("status"), std::string::npos);
     EXPECT_NE(result->find("about"), std::string::npos);
     EXPECT_NE(result->find("help"), std::string::npos);
-    EXPECT_NE(result->find("system-info"), std::string::npos);
 }
 
 TEST(HelpCapabilityTest, DoesNotListUnknown) {
@@ -356,7 +373,7 @@ TEST_F(CapabilityRegistryGrantTest, T2CapabilityWithGrantExecutesNormally) {
     EXPECT_EQ(*result, "volume set to 50");
 }
 
-TEST(CapabilityRegistryPluginGateTest, AllFiveBuiltinsDispatchWithPluginConfigSetAndEmptyConfig) {
+TEST(CapabilityRegistryPluginGateTest, AllFourBuiltinsDispatchWithPluginConfigSetAndEmptyConfig) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
@@ -370,5 +387,4 @@ TEST(CapabilityRegistryPluginGateTest, AllFiveBuiltinsDispatchWithPluginConfigSe
     EXPECT_TRUE(registry.dispatch(CommandType::STATUS, "", context).has_value());
     EXPECT_TRUE(registry.dispatch(CommandType::ABOUT, "", context).has_value());
     EXPECT_TRUE(registry.dispatch(CommandType::HELP, "", context).has_value());
-    EXPECT_TRUE(registry.dispatch(std::string("system-info"), "", context).has_value());
 }

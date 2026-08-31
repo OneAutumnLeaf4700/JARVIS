@@ -66,4 +66,3 @@ Capability makeEchoCapability();
 Capability makeAboutCapability();
 Capability makeStatusCapability();
 Capability makeHelpCapability();
-Capability makeSystemInfoCapability();

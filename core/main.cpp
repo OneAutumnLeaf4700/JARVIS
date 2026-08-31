@@ -6,6 +6,7 @@
 #include "capability_registry.h"
 #include "engine.h"
 #include "plugin_config.h"
+#include "plugin_loader.h"
 
 namespace {
 
@@ -13,7 +14,7 @@ namespace {
 // one surface with a real terminal attached. Returns the process exit code.
 int runGrantFlow(const std::string& capabilityName, const CapabilityRegistry& registry) {
     const Capability* capability = nullptr;
-    for (const auto& [intent, cap] : registry.all()) {
+    for (const auto& [intent, cap] : registry.allByIntent()) {
         if (cap.name == capabilityName) {
             capability = &cap;
             break;
@@ -23,7 +24,7 @@ int runGrantFlow(const std::string& capabilityName, const CapabilityRegistry& re
     if (capability == nullptr) {
         std::cout << "Unknown capability: " << capabilityName << "\n";
         std::cout << "Registered capabilities:\n";
-        for (const auto& [intent, cap] : registry.all()) {
+        for (const auto& [intent, cap] : registry.allByIntent()) {
             std::cout << "  - " << cap.name << "\n";
         }
         return 1;
@@ -67,8 +68,18 @@ int main(int argc, char** argv) {
     spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
 
     Engine engine;
+    PluginLoader pluginLoader;  // declared before registry so it outlives it (see
+                                 // PluginLoader's destructor comment in core/plugin_loader.cpp)
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
+
+    for (const std::string& dir : loadPluginDirs("config/plugin_dirs.cfg")) {
+        for (const PluginLoadResult& result : pluginLoader.loadFromDirectory(dir, registry)) {
+            if (!result.loaded) {
+                spdlog::warn("Plugin '{}' failed to load: {}", result.pluginId, result.reason);
+            }
+        }
+    }
 
     if (argc >= 2 && std::string(argv[1]) == "--grant") {
         if (argc != 3) {

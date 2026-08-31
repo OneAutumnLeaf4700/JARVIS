@@ -1,0 +1,13 @@
+{
+  "id": "system-info",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libsystem_info_plugin.so",
+  "capabilities": [
+    {
+      "intent": "system-info",
+      "description": "Shows local OS, architecture, compiler, and hardware-thread information. Usage: system-info",
+      "power_tier": "T0_READ_ONLY"
+    }
+  ]
+}

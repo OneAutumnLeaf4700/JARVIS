@@ -2,7 +2,6 @@
 
 #include <iomanip>
 #include <sstream>
-#include <thread>
 
 #include "command_handler.h"
 #include "consent_gate.h"
@@ -10,46 +9,6 @@
 
 static const std::string kExitDescription =
     "Terminates the JARVIS Core Engine. Usage: exit";
-
-namespace {
-
-std::string operatingSystemName() {
-#if defined(_WIN32)
-    return "Windows";
-#elif defined(__APPLE__)
-    return "macOS";
-#elif defined(__linux__)
-    return "Linux";
-#else
-    return "Unknown";
-#endif
-}
-
-std::string architectureName() {
-#if defined(__x86_64__) || defined(_M_X64)
-    return "x86_64";
-#elif defined(__aarch64__) || defined(_M_ARM64)
-    return "arm64";
-#elif defined(__i386__) || defined(_M_IX86)
-    return "x86";
-#else
-    return "Unknown";
-#endif
-}
-
-std::string compilerName() {
-#if defined(__clang__)
-    return "Clang " + std::to_string(__clang_major__) + "." + std::to_string(__clang_minor__);
-#elif defined(__GNUC__)
-    return "GCC " + std::to_string(__GNUC__) + "." + std::to_string(__GNUC_MINOR__);
-#elif defined(_MSC_VER)
-    return "MSVC " + std::to_string(_MSC_VER);
-#else
-    return "Unknown";
-#endif
-}
-
-}  // namespace
 
 void CapabilityRegistry::registerCapability(Capability capability) {
     if (capability.intentName.empty()) {
@@ -191,31 +150,6 @@ Capability makeStatusCapability() {
     };
 }
 
-Capability makeSystemInfoCapability() {
-    return Capability{
-        "system-info",
-        CommandType::UNKNOWN,
-        "Shows local OS, architecture, compiler, and hardware-thread information. Usage: system-info",
-        PowerTier::T0_READ_ONLY,
-        [](const std::string& /*payload*/, ExecutionContext& /*context*/) -> std::string {
-            std::ostringstream out;
-            out << "System information:\n";
-            out << "OS: " << operatingSystemName() << "\n";
-            out << "Architecture: " << architectureName() << "\n";
-            out << "Compiler: " << compilerName() << "\n";
-            out << "C++ standard: " << __cplusplus << "\n";
-            out << "Hardware threads: ";
-            const unsigned int threadCount = std::thread::hardware_concurrency();
-            if (threadCount == 0) {
-                out << "unavailable";
-            } else {
-                out << threadCount;
-            }
-            return out.str();
-        }
-    };
-}
-
 Capability makeHelpCapability() {
     return Capability{
         "help",
@@ -270,5 +204,4 @@ void registerBuiltinCapabilities(CapabilityRegistry& registry) {
     registry.registerCapability(makeAboutCapability());
     registry.registerCapability(makeStatusCapability());
     registry.registerCapability(makeHelpCapability());
-    registry.registerCapability(makeSystemInfoCapability());
 }
