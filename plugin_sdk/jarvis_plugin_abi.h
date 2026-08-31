@@ -30,8 +30,12 @@ typedef char* (*JarvisCapabilityFn)(const char* payload);
 
 typedef struct {
     /* Called by the plugin's jarvis_plugin_register(), once per capability, during load.
-     * Returns 1 on success, 0 if the host rejected it. host_context is the opaque pointer the
-     * host passed into jarvis_plugin_register() — pass it back unchanged. */
+     * Currently always returns 1 — this call itself never rejects. Manifest/registration
+     * mismatches (wrong count, wrong intent name, wrong power tier, etc.) are instead caught
+     * afterward by the loader's cross-check once jarvis_plugin_register() returns, and reject
+     * the whole plugin load as a unit at that point, not this individual registration call.
+     * host_context is the opaque pointer the host passed into jarvis_plugin_register() — pass
+     * it back unchanged. */
     int (*registerCapability)(
         void* host_context,
         const char* intent_name,

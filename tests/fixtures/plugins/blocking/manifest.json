@@ -1,0 +1,13 @@
+{
+  "id": "blocking",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libblocking_fixture.so",
+  "capabilities": [
+    {
+      "intent": "fixture-blocking",
+      "description": "Test fixture: blocks until a release-file signal appears.",
+      "power_tier": "T0_READ_ONLY"
+    }
+  ]
+}

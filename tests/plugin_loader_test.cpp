@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <thread>
 
 #include "capability_registry.h"
 #include "engine.h"
@@ -330,6 +333,65 @@ TEST(PluginLoaderTest, UnloadRefusesBeforeDisable) {
     std::filesystem::remove_all(isolatedDir);
 
     EXPECT_FALSE(loader.unloadPlugin("valid-echo"));  // still enabled — refuse
+}
+
+TEST(PluginLoaderTest, UnloadRefusesWhileInvocationInFlightThenSucceedsAfterRelease) {
+    CapabilityRegistry registry;
+    PluginLoader loader;
+
+    const std::string isolatedDir = IsolateFixture("blocking");
+    std::vector<PluginLoadResult> results = loader.loadFromDirectory(isolatedDir, registry);
+    std::filesystem::remove_all(isolatedDir);
+
+    ASSERT_EQ(results.size(), 1u);
+    ASSERT_TRUE(results[0].loaded) << "reason: " << results[0].reason;
+
+    const std::filesystem::path readyFile =
+        std::filesystem::temp_directory_path() / "jarvis_blocking_fixture_ready.flag";
+    const std::filesystem::path releaseFile =
+        std::filesystem::temp_directory_path() / "jarvis_blocking_fixture_release.flag";
+    std::filesystem::remove(readyFile);
+    std::filesystem::remove(releaseFile);
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+
+    std::atomic<bool> dispatchReturned{false};
+    std::optional<std::string> dispatchResult;
+    std::thread worker([&]() {
+        dispatchResult = registry.dispatch(
+            std::string("fixture-blocking"), readyFile.string() + "|" + releaseFile.string(), context);
+        dispatchReturned.store(true, std::memory_order_relaxed);
+    });
+
+    // Wait for the plugin's capability function to actually be running inside execute() (it
+    // touches readyFile as the very first thing it does, and by construction the host
+    // trampoline's invocationCount is already incremented before the plugin function is even
+    // called) — deterministic readiness signal, not a fixed sleep guess.
+    for (int i = 0; i < 2000 && !std::filesystem::exists(readyFile); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    ASSERT_TRUE(std::filesystem::exists(readyFile)) << "blocking fixture never signalled readiness";
+
+    // Disabling doesn't require zero in-flight calls — only unloading does.
+    EXPECT_TRUE(loader.disablePlugin("blocking", registry));
+
+    // The invocation is still in flight (blocked on releaseFile) — unload must refuse.
+    EXPECT_FALSE(loader.unloadPlugin("blocking"));
+
+    // Release the blocked call and let it finish.
+    { std::ofstream release(releaseFile); }
+    worker.join();
+
+    ASSERT_TRUE(dispatchResult.has_value());
+    EXPECT_EQ(*dispatchResult, "unblocked");
+    EXPECT_TRUE(dispatchReturned.load(std::memory_order_relaxed));
+
+    std::filesystem::remove(readyFile);
+    std::filesystem::remove(releaseFile);
+
+    // Now that the invocation has returned, unload must succeed.
+    EXPECT_TRUE(loader.unloadPlugin("blocking"));
 }
 
 TEST(PluginLoaderTest, RejectsRealBadAbiFixtureAfterDlopen) {

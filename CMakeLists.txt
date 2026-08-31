@@ -162,6 +162,15 @@ add_custom_command(TARGET mismatched_tier_fixture POST_BUILD
         ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/mismatched-tier/manifest.json
         ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/mismatched-tier/manifest.json)
 
+add_library(blocking_fixture SHARED tests/fixtures/plugins/blocking/plugin.cpp)
+target_include_directories(blocking_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
+set_target_properties(blocking_fixture PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/blocking)
+add_custom_command(TARGET blocking_fixture POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/blocking/manifest.json
+        ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/blocking/manifest.json)
+
 add_library(system_info_plugin SHARED plugins/system-info/plugin.cpp)
 target_include_directories(system_info_plugin PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(system_info_plugin PROPERTIES
@@ -175,7 +184,7 @@ add_dependencies(jarvis system_info_plugin)
 add_dependencies(jarvis_grpc_server system_info_plugin)
 add_dependencies(jarvis_tests system_info_plugin)
 
-add_dependencies(jarvis_tests valid_echo_fixture bad_abi_fixture mismatched_tier_fixture)
+add_dependencies(jarvis_tests valid_echo_fixture bad_abi_fixture mismatched_tier_fixture blocking_fixture)
 
 target_compile_definitions(jarvis_tests PRIVATE
     JARVIS_TEST_FIXTURES_DIR="${CMAKE_BINARY_DIR}/tests/fixtures/plugins"
