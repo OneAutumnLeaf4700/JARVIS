@@ -4,19 +4,24 @@ A locally-running, hybrid C++/Python personal assistant — built primarily as a
 
 JARVIS is intentionally not a thin wrapper around an LLM API. Every layer is built up from primitives so each addition teaches something concrete: parsers, dispatch maps, service boundaries, RPC contracts, schema versioning, structured logging, and so on.
 
-**Status:** Phase 2 in progress. The CLI prototype, the C++ gRPC server, and the Python AI server all work end-to-end. The AI layer is currently a placeholder echo, ready to be replaced with rule-based intent classification next.
+**Status:** Phases 1–3 are complete. JARVIS has a C++ capability registry, a tiered Python
+understanding layer (rules with local Ollama fallback), and optional local voice input/output.
+Phase 4 — runtime plugins, desktop control, and integrations — is next.
 
 ---
 
 ## What works today
 
 - C++ core engine with a stateful CLI loop (`echo`, `help`, `help <command>`, `about`, `status`, `exit`)
-- Engine logic decoupled from stdout — `runCMD()` returns strings, so the same logic serves the CLI and any networked client
+- Registry-based capability dispatch for `echo`, `help`, `about`, and `status`; each capability declares a power tier (all current built-ins are read-only T0)
+- Transport-agnostic capability execution — capabilities return strings, so the same dispatch serves the CLI and gRPC service
 - C++ gRPC server on `:50051` exposing the engine via `JarvisService.ProcessCommand`
-- Python gRPC AI server on `:50052` exposing `JarvisAIService.ProcessNaturalLanguage`
-- C++ gRPC client (`JarvisAIClient`) that forwards `UNKNOWN` commands to the Python AI server with a 5-second deadline so a missing AI process never blocks the main server
-- Structured logging via spdlog on the C++ side
-- Python smoke test (`tools/grpc_smoke_test.py`) that exercises the full known-command and `UNKNOWN → AI` round-trips
+- Python gRPC AI server on `:50052` exposing `JarvisAIService.ProcessNaturalLanguage`, with rule-based intent classification and local Ollama escalation on a rule miss
+- C++ gRPC client (`JarvisAIClient`) that forwards `UNKNOWN` commands to the Python AI server with a 5-second deadline; confident classified intents are re-dispatched through the registry
+- Graceful local LLM degradation: Ollama calls time out after 3 seconds and resolve to `UNKNOWN` rather than blocking
+- Structured logging on both C++ and Python service sides
+- Optional local voice client: openWakeWord, faster-whisper STT, and Piper TTS through the existing gRPC API
+- C++ GoogleTest suite, Python/voice pytest suites, a gRPC smoke test, and an understanding accuracy/latency evaluation harness
 
 ---
 
@@ -26,24 +31,24 @@ JARVIS is split into three runtime tiers communicating through versioned protobu
 
 ```
             ┌──────────────────────────────────┐
-            │  Clients (CLI / smoke test /     │
-            │   future voice / future UI)      │
+            │  Clients (CLI / text / voice /   │
+            │      smoke test / future UI)     │
             └────────────────┬─────────────────┘
                              │ gRPC :50051
                              ▼
             ┌──────────────────────────────────┐
             │  C++ Core Service                │
             │   • Engine (state, uptime)       │
-            │   • Command parser / dispatcher  │
+            │   • Parser + capability registry │
             │   • gRPC service adapter         │
             └────────────────┬─────────────────┘
-                             │ gRPC :50052 (UNKNOWN only)
+                             │ gRPC :50052 (unresolved input)
                              ▼
             ┌──────────────────────────────────┐
             │  Python AI Layer                 │
-            │   • Natural-language handling    │
-            │   • [next]   intent classifier   │
-            │   • [later]  LLM integration     │
+            │   • Rule-based intent classifier │
+            │   • Local Ollama fallback tier   │
+            │   • Structured intent/confidence │
             └──────────────────────────────────┘
 ```
 
@@ -65,15 +70,13 @@ There are two paths through the system today:
 
 ```
 stdin → Engine::run() loop
-      → handleCommand(input)
-        → parseCommand()         // → ParsedCommand{type, payload}
-          → runCMD(parsed)       // → std::string
-            → printed to stdout
+      → parseCommand()                    // → ParsedCommand{type, payload}
+        → CapabilityRegistry::dispatch()  // → std::string
+          → printed to stdout
 ```
 
-`Engine::run()` also handles two side-effecting commands directly:
-- `STATUS` → calls `Engine::printStatus()` (uptime, last command)
-- `EXIT`   → calls `Engine::terminate()`
+`status` is a registered read-only capability that reads engine state. `exit` remains engine
+lifecycle control and calls `Engine::terminate()` directly.
 
 ### Path 2 — gRPC (networked)
 
@@ -82,16 +85,19 @@ gRPC client (e.g. Python smoke test)
   → ExecuteCommandRequest → C++ JarvisServiceImpl::ProcessCommand
     → validates (rejects COMMAND_TYPE_UNSPECIFIED with ERROR_CODE_INVALID_COMMAND)
     → protoCommandToInternal()             // proto enum → internal CommandType
-    → runCMD(parsed)                       // same dispatch logic as CLI
+    → CapabilityRegistry::dispatch()       // same dispatch logic as CLI
        ├── known command → returned as ExecuteCommandResponse.message
        └── UNKNOWN       → JarvisAIClient::ProcessNaturalLanguage()
                             → NaturalLanguageRequest → Python :50052
-                              → JarvisAIServicer
-                                → reply text → response bubbles back up
+                              → JarvisAIServicer → rules first → local Ollama on a miss
+                                ├── confident known intent → re-dispatch through registry
+                                └── unresolved/error → descriptive AI reply
     → fills ExecuteCommandResponse{success, message, command_type, error_code}
 ```
 
-The key invariant: **`runCMD()` doesn't know which path called it.** That's what "transport-agnostic core" means in practice — the same function serves stdin, gRPC, and any future transport (websocket, IPC, message bus).
+The key invariant: **capabilities do not know which path called them.** That's what
+"transport-agnostic core" means in practice — the same registry dispatch serves stdin, gRPC,
+and any future transport (websocket, IPC, message bus).
 
 ---
 
@@ -102,18 +108,22 @@ JARVIS/
 ├── core/                       # C++ engine and gRPC server
 │   ├── main.cpp                # CLI entry point
 │   ├── engine.cpp/.h           # Engine state, run loop, status
-│   ├── command_handler.cpp/.h  # Parsing + dispatch
+│   ├── command_handler.cpp/.h  # Deterministic command parsing
+│   ├── capability*.{h,cpp}     # Capability model, registry, and built-ins
 │   ├── jarvis_service.cpp/.h   # gRPC service adapter (proto ↔ engine)
 │   ├── ai_client.cpp/.h        # gRPC client to Python AI layer
 │   └── grpc_server_main.cpp    # Server entry point
-├── ai/
-│   └── jarvis_ai_server.py     # Python gRPC server (placeholder echo)
+├── ai/                         # Python understanding tier
+│   ├── intent_classifier.py    # Deterministic rule-based classifier
+│   ├── resolver.py             # Rules → local LLM fallback
+│   ├── llm_backend.py          # Ollama client with a deadline/fallback
+│   └── jarvis_ai_server.py     # Python gRPC service adapter
 ├── proto/
 │   ├── jarvis.proto            # Core service contract
 │   └── ai.proto                # AI layer contract
 ├── generated/                  # Auto-generated proto stubs (cpp + python)
-├── tools/
-│   └── grpc_smoke_test.py      # End-to-end smoke test
+├── tools/                      # Interactive, smoke-test, and evaluation clients
+├── voice/                      # Optional local voice surface (wake word, STT, TTS)
 ├── docs/
 │   ├── architecture-blueprint.md  # Binding architecture: pipeline, invariants, core→scaled
 │   ├── roadmap.md                 # Step-by-step execution plan (current + next phase)
@@ -157,16 +167,36 @@ In three separate terminals:
 
 ```bash
 # 1. Python AI server — start first so the C++ server can reach it
-python3 ai/jarvis_ai_server.py
+.venv/bin/python ai/jarvis_ai_server.py
 
 # 2. C++ gRPC server
 ./build/jarvis_grpc_server
 
 # 3. Smoke test (one-shot)
-python3 tools/grpc_smoke_test.py
+.venv/bin/python tools/grpc_smoke_test.py
 ```
 
 If the Python AI server is down, the C++ server still serves known commands; `UNKNOWN` commands return `[AI unavailable: ...]` after the 5-second deadline rather than hanging.
+
+### Run the full stack interactively
+
+With the project virtual environment and generated protobuf stubs available, the launcher starts
+both services and opens the text client:
+
+```bash
+./start_jarvis.sh
+```
+
+Ollama is optional: rule matches work without it, while a rule miss degrades to `UNKNOWN` after
+the local LLM timeout.
+
+### Run tests
+
+```bash
+cmake --build build --target jarvis_tests
+ctest --test-dir build --output-on-failure
+PYTHONPATH=ai:generated/python .venv/bin/python -m pytest ai tools/test_eval_understanding.py voice/tests -q
+```
 
 ### Regenerate proto stubs (only when `proto/*.proto` changes)
 
@@ -216,8 +246,8 @@ On first run, the `openwakeword` ONNX model and the `faster-whisper` model weigh
 downloaded — they aren't committed to the repo. This needs network access once; after that,
 voice input runs fully offline (INV-11).
 
-Voice *output* (text-to-speech) is opt-in via `tts.enabled: true` in `voice_config.yaml`. When
-enabled, download the Piper voice model named by `tts.voice` (default `en_US-lessac-medium`)
+Voice *output* (text-to-speech) is controlled by `tts.enabled` in `voice_config.yaml`. When
+enabled, download the Piper voice model named by `tts.voice` (for example, `en_US-lessac-medium`)
 into `voice/tts_models/`:
 
 ```bash
@@ -247,6 +277,6 @@ Every step in the roadmaps below has a stated learning outcome, not just a build
 ## Where to go next
 
 - **[docs/architecture-blueprint.md](docs/architecture-blueprint.md)** — the binding architecture: full core→scaled design, the seven-stage pipeline, and the thirteen invariants every change must obey (why-hybrid/why-gRPC rationale is in its Appendix A). Distilled into the enforceable root [`CLAUDE.md`](CLAUDE.md).
-- **[docs/roadmap.md](docs/roadmap.md)** — step-by-step plan: Phase 1 (done) + Phase 2 (current focus: rule-based intent classification)
+- **[docs/roadmap.md](docs/roadmap.md)** — implementation record for the completed foundation, intelligence, and voice phases
 - **[docs/features.md](docs/features.md)** — full checklist, Phase 1 through stretch goals, with status indicators
 - **[docs/vision.md](docs/vision.md)** — unsorted brainstorm of future ideas, not yet promoted into a roadmap
