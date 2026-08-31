@@ -194,6 +194,16 @@ std::vector<PluginLoadResult> PluginLoader::loadFromDirectory(const std::string&
                 break;
             }
 
+            const bool duplicateWithinManifest = std::any_of(declared.begin(), declared.end(),
+                [&intentField](const DeclaredCapability& d) {
+                    return d.intent == intentField->asString();
+                });
+            if (duplicateWithinManifest) {
+                manifestValid = false;
+                invalidReason = "duplicate intent '" + intentField->asString() + "' within manifest";
+                break;
+            }
+
             declared.push_back({intentField->asString(), *tier});
         }
 
@@ -248,15 +258,17 @@ std::vector<PluginLoadResult> PluginLoader::loadFromDirectory(const std::string&
 
         bool crossCheckOk = staged.size() == declared.size();
         if (crossCheckOk) {
+            std::vector<DeclaredCapability> unmatched = declared;
             for (const Capability& capability : staged) {
-                const bool found = std::any_of(declared.begin(), declared.end(),
+                auto match = std::find_if(unmatched.begin(), unmatched.end(),
                     [&capability](const DeclaredCapability& d) {
                         return d.intent == capability.intentName && d.tier == capability.powerTier;
                     });
-                if (!found) {
+                if (match == unmatched.end()) {
                     crossCheckOk = false;
                     break;
                 }
+                unmatched.erase(match);
             }
         }
 
