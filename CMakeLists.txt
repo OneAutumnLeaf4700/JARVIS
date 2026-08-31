@@ -38,6 +38,7 @@ add_executable(
     core/capability_registry.cpp
     core/plugin_config.cpp
     core/consent_gate.cpp
+    core/minimal_json.cpp
 )
 
 target_link_libraries(
@@ -76,6 +77,7 @@ add_executable(
     core/consent_gate.cpp
     core/ai_client.cpp
     core/jarvis_service.cpp
+    core/minimal_json.cpp
 )
 
 target_link_libraries(
@@ -91,11 +93,13 @@ add_executable(
     tests/capability_registry_test.cpp
     tests/plugin_config_test.cpp
     tests/consent_gate_test.cpp
+    tests/minimal_json_test.cpp
     core/capability_registry.cpp
     core/command_handler.cpp
     core/engine.cpp
     core/plugin_config.cpp
     core/consent_gate.cpp
+    core/minimal_json.cpp
 )
 
 target_include_directories(
