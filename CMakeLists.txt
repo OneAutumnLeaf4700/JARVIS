@@ -178,7 +178,8 @@ add_dependencies(jarvis_tests system_info_plugin)
 add_dependencies(jarvis_tests valid_echo_fixture bad_abi_fixture mismatched_tier_fixture)
 
 target_compile_definitions(jarvis_tests PRIVATE
-    JARVIS_TEST_FIXTURES_DIR="${CMAKE_BINARY_DIR}/tests/fixtures/plugins")
+    JARVIS_TEST_FIXTURES_DIR="${CMAKE_BINARY_DIR}/tests/fixtures/plugins"
+    JARVIS_BUILD_PLUGINS_DIR="${CMAKE_BINARY_DIR}/plugins")
 
 include(GoogleTest)
 gtest_discover_tests(jarvis_tests)

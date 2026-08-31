@@ -114,7 +114,10 @@ TEST(SystemInfoPluginTest, LoadsAndDispatchesViaPluginLoader) {
     registerBuiltinCapabilities(registry);
     PluginLoader pluginLoader;
 
-    std::vector<PluginLoadResult> results = pluginLoader.loadFromDirectory("plugins", registry);
+    // Absolute path via JARVIS_BUILD_PLUGINS_DIR so this works regardless of the test binary's
+    // working directory (the relative "plugins" path only resolves when cwd is build/).
+    std::vector<PluginLoadResult> results =
+        pluginLoader.loadFromDirectory(JARVIS_BUILD_PLUGINS_DIR, registry);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].loaded);
     EXPECT_EQ(results[0].pluginId, "system-info");
@@ -133,7 +136,7 @@ TEST(SystemInfoPluginTest, LoadsAndDispatchesViaPluginLoader) {
 TEST(SystemInfoPluginTest, IsPowerTierT0) {
     CapabilityRegistry registry;
     PluginLoader pluginLoader;
-    pluginLoader.loadFromDirectory("plugins", registry);
+    pluginLoader.loadFromDirectory(JARVIS_BUILD_PLUGINS_DIR, registry);
 
     const Capability* systemInfo = registry.resolve(std::string("system-info"));
     ASSERT_NE(systemInfo, nullptr);
@@ -144,7 +147,7 @@ TEST(SystemInfoPluginTest, RegistersNoCommandTypeEntry) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
     PluginLoader pluginLoader;
-    pluginLoader.loadFromDirectory("plugins", registry);
+    pluginLoader.loadFromDirectory(JARVIS_BUILD_PLUGINS_DIR, registry);
 
     for (const auto& [commandType, capability] : registry.all()) {
         EXPECT_NE(capability.name, "system-info");
@@ -154,7 +157,7 @@ TEST(SystemInfoPluginTest, RegistersNoCommandTypeEntry) {
 TEST(SystemInfoPluginTest, DisableThenUnload) {
     CapabilityRegistry registry;
     PluginLoader pluginLoader;
-    pluginLoader.loadFromDirectory("plugins", registry);
+    pluginLoader.loadFromDirectory(JARVIS_BUILD_PLUGINS_DIR, registry);
     ASSERT_NE(registry.resolve(std::string("system-info")), nullptr);
 
     EXPECT_TRUE(pluginLoader.disablePlugin("system-info", registry));
