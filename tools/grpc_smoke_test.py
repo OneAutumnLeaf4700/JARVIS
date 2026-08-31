@@ -43,6 +43,7 @@ def main():
     call_command(stub, jarvis_pb2.COMMAND_TYPE_ECHO, "hello from python")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_HELP, "")
     call_command(stub, jarvis_pb2.COMMAND_TYPE_STATUS, "")
+    call_command(stub, jarvis_pb2.COMMAND_TYPE_SYSTEM_INFO, "", label="system information")
 
     # UNKNOWN commands route to the Python AI server for classification.
     # The server re-dispatches classified intents (STATUS/ECHO/ABOUT) as if the
@@ -59,6 +60,10 @@ def main():
     call_command(
         stub, jarvis_pb2.COMMAND_TYPE_UNKNOWN, "who are you",
         label="classified -> ABOUT",
+    )
+    call_command(
+        stub, jarvis_pb2.COMMAND_TYPE_UNKNOWN, "show system information",
+        label="classified -> SYSTEM_INFO",
     )
     # Genuine fallback: nothing the rule classifier recognises, so command_type
     # stays UNKNOWN and message is the AI server's placeholder reply.

@@ -11,6 +11,7 @@ INTENT_PATTERNS: dict[str, list[set[str]]] = {
     "STATUS": [{"status"}, {"uptime"}, {"how", "long", "running"}, {"alive"}],
     "ECHO": [{"echo"}, {"repeat", "after"}, {"say"}],
     "ABOUT": [{"about"}, {"who", "are", "you"}],
+    "SYSTEM_INFO": [{"system", "info"}, {"system", "information"}, {"machine", "info"}],
 }
 # ABOUT deliberately doesn't include a {"what", "jarvis"}-style pattern. "jarvis" is the
 # assistant's own name/address term — spoken constantly in voice input ("Jarvis, what's...")

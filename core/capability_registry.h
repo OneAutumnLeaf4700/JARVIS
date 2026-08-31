@@ -14,6 +14,13 @@ class CapabilityRegistry {
  public:
     void registerCapability(Capability capability);
 
+    // Extensible dispatch path for runtime plugins. Unlike CommandType, an intent name can be
+    // introduced by a shared library without changing the core binary or protobuf enum.
+    const Capability* resolve(const std::string& intentName) const;
+    std::optional<std::string> dispatch(const std::string& intentName,
+                                         const std::string& payload,
+                                         ExecutionContext& context) const;
+
     // Returns nullptr if no capability answers this intent. CommandType::UNKNOWN is never
     // registered, so resolving it always returns nullptr — "no match" stays a real, distinct
     // outcome, not a capability.
@@ -31,6 +38,7 @@ class CapabilityRegistry {
 
     // For `help` to enumerate what's registered, and for tests.
     const std::unordered_map<CommandType, Capability>& all() const;
+    const std::unordered_map<std::string, Capability>& allByIntent() const;
 
     // For `help` to filter out disabled capabilities (nullptr if setPluginConfig() was never
     // called — same "no gating" default as dispatch()).
@@ -38,6 +46,7 @@ class CapabilityRegistry {
 
  private:
     std::unordered_map<CommandType, Capability> capabilities_;
+    std::unordered_map<std::string, Capability> namedCapabilities_;
     const PluginConfig* pluginConfig_ = nullptr;
 };
 
@@ -50,3 +59,4 @@ Capability makeEchoCapability();
 Capability makeAboutCapability();
 Capability makeStatusCapability();
 Capability makeHelpCapability();
+Capability makeSystemInfoCapability();

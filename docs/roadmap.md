@@ -148,8 +148,11 @@ capability sprawl:
    via `PluginConfig::grant()`. Both `core/main.cpp`'s normal startup and
    `core/grpc_server_main.cpp` now load `PluginConfig` and pass it into the registry.
 
-This substrate **ships zero new plugins** — all four builtins stay `T0_READ_ONLY`, so runtime
-behavior is unchanged until a future capability actually declares `T2_SYSTEM_AFFECTING` or above.
+The first capability built on that substrate is **`system-info`**: a T0, read-only local system
+information capability. It proves the end-to-end extension path (parser/proto/Understanding →
+registry → response) without a consent prompt, subprocess, or external dependency. It reports
+compile-time OS, architecture, compiler, C++ standard, and available hardware threads. The
+remaining Phase 4 work can add T1/T2 capabilities onto the same gate.
 The remaining Phase 4 items (runtime `.so` discovery, system control plugin, desktop interaction,
 file search, reminders, media control, calendar) are still 📋 To do — see
 [`features.md`](features.md).

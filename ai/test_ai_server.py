@@ -41,7 +41,12 @@ class TestServicerClassifiesViaRules:
 
     @pytest.mark.parametrize(
         "text,expected",
-        [("status", "STATUS"), ("say hello", "ECHO"), ("who are you", "ABOUT")],
+        [
+            ("status", "STATUS"),
+            ("say hello", "ECHO"),
+            ("who are you", "ABOUT"),
+            ("show system information", "SYSTEM_INFO"),
+        ],
     )
     def test_maps_intents(self, text, expected):
         assert call(text).intent == expected

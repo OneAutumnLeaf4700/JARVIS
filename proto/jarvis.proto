@@ -14,6 +14,8 @@ service JarvisService {
 message ExecuteCommandRequest {
     CommandType command = 1; // Command Type
     string payload = 2; // Command Payload (if any)
+    // Extensible capability intent. When set, this takes precedence over the legacy enum.
+    string intent = 3;
 }
 
 //Response message for the ProcessCommand RPC
@@ -22,6 +24,8 @@ message ExecuteCommandResponse {
     string message = 2; // Response message or error details
     CommandType command_type = 3; // Type of the executed command
     ErrorCode error_code = 4; // Error code if the command execution failed
+    // Canonical intent that was executed, including runtime plugin intents.
+    string intent = 5;
 }
 
 //Enums for RPC logic.
@@ -36,6 +40,7 @@ enum CommandType {
     COMMAND_TYPE_HELP = 4;
     COMMAND_TYPE_ABOUT = 5;
     COMMAND_TYPE_STATUS = 6;
+    COMMAND_TYPE_SYSTEM_INFO = 7;
 }
 
 //Error codes for command execution debugging and response handling
@@ -46,4 +51,3 @@ enum ErrorCode {
     ERROR_CODE_EXECUTION_FAILED = 3;
     ERROR_CODE_UNKNOWN_ERROR = 4;
 }
-

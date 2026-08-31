@@ -3,8 +3,9 @@
 The standalone `build/jarvis` CLI never leaves the C++ process (see core/engine.cpp), so it
 can't reach the Python AI layer or the LLM fallback tier. This client talks to the C++ gRPC
 server the same way tools/grpc_smoke_test.py does, but interactively: known commands (echo,
-status, about, help, exit) are sent directly; anything else is sent as UNKNOWN and flows through
-the real classify-then-escalate pipeline, exactly like a natural-language prompt would.
+status, about, help, system-info, exit) are sent directly; anything else is sent as UNKNOWN and
+flows through the real classify-then-escalate pipeline, exactly like a natural-language prompt
+would.
 
 Usage: python3 tools/interactive_client.py
 (Requires ai/jarvis_ai_server.py and build/jarvis_grpc_server already running — see
@@ -29,6 +30,7 @@ KNOWN_COMMANDS = {
     "status": jarvis_pb2.COMMAND_TYPE_STATUS,
     "about": jarvis_pb2.COMMAND_TYPE_ABOUT,
     "help": jarvis_pb2.COMMAND_TYPE_HELP,
+    "system-info": jarvis_pb2.COMMAND_TYPE_SYSTEM_INFO,
 }
 
 
@@ -51,7 +53,7 @@ def main():
     stub = jarvis_pb2_grpc.JarvisServiceStub(channel)
 
     print("JARVIS interactive client — connected to localhost:50051")
-    print("Type a known command (echo/status/about/help/exit) or any natural-language prompt.")
+    print("Type a known command (echo/status/about/help/system-info/exit) or any natural-language prompt.")
     print("Ctrl+C or 'exit' to quit.\n")
 
     while True:

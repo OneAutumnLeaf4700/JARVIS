@@ -35,6 +35,8 @@ POSITIVE_CASES = [
     ("say hello", "ECHO"),
     ("about", "ABOUT"),
     ("who are you", "ABOUT"),
+    ("show system information", "SYSTEM_INFO"),
+    ("machine info", "SYSTEM_INFO"),
 ]
 
 

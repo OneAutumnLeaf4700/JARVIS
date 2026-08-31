@@ -34,4 +34,7 @@ struct Capability {
     std::string description;
     PowerTier powerTier;
     std::function<std::string(const std::string& payload, ExecutionContext& context)> execute;
+    // Stable, extensible identifier used by plugins and new clients. Existing built-ins leave
+    // this empty; CapabilityRegistry assigns their capability name as the intent on registration.
+    std::string intentName;
 };

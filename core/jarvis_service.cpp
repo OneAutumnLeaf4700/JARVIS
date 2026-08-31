@@ -22,7 +22,7 @@ JarvisServiceImpl::~JarvisServiceImpl() {
     ::jarvis::v1::ExecuteCommandResponse* response) {
 
   // Step 1: Validate — reject unspecified command type before doing any work.
-  if (request->command() == jarvis::v1::COMMAND_TYPE_UNSPECIFIED) {
+  if (request->command() == jarvis::v1::COMMAND_TYPE_UNSPECIFIED && request->intent().empty()) {
     spdlog::warn("Rejected request: COMMAND_TYPE_UNSPECIFIED");
     response->set_success(false);
     response->set_message("Invalid request: command type must be specified.");
@@ -34,9 +34,10 @@ JarvisServiceImpl::~JarvisServiceImpl() {
   // Step 2: Translate proto enum → internal enum and extract payload.
   CommandType internalCmd = protoCommandToInternal(request->command());
   std::string payload = request->payload();
+  std::string intentName = request->intent();
 
-  spdlog::info("ProcessCommand: command={} payload='{}'",
-      jarvis::v1::CommandType_Name(request->command()), payload);
+  spdlog::info("ProcessCommand: command={} intent='{}' payload='{}'",
+      jarvis::v1::CommandType_Name(request->command()), intentName, payload);
 
   // Step 3: Dispatch through the registry. For UNKNOWN this always returns std::nullopt
   // (UNKNOWN is never registered) — output starts empty and gets replaced below regardless.
@@ -44,15 +45,24 @@ JarvisServiceImpl::~JarvisServiceImpl() {
   // disabled (INV-7) — that's a distinct outcome from "command doesn't exist" and must not
   // silently collapse to an empty, apparently-successful reply.
   ExecutionContext execContext{engine_, registry_};
-  std::optional<std::string> dispatchResult = registry_.dispatch(internalCmd, payload, execContext);
-  bool dispatchFailed = !dispatchResult.has_value() && internalCmd != CommandType::UNKNOWN;
+  std::optional<std::string> dispatchResult;
+  if (!intentName.empty()) {
+    dispatchResult = registry_.dispatch(intentName, payload, execContext);
+  } else {
+    dispatchResult = registry_.dispatch(internalCmd, payload, execContext);
+    if (const Capability* capability = registry_.resolve(internalCmd)) {
+      intentName = capability->intentName;
+    }
+  }
+  bool dispatchFailed = !dispatchResult.has_value() &&
+      (!intentName.empty() || internalCmd != CommandType::UNKNOWN);
   std::string output = dispatchResult.value_or(
       dispatchFailed ? "Command is currently unavailable." : "");
 
   // Step 4: UNKNOWN commands are forwarded to the Python AI server. If the AI
   // classifies the text into a known intent with enough confidence, re-dispatch
   // as that command instead of just echoing the AI's reply back.
-  if (internalCmd == CommandType::UNKNOWN) {
+  if (intentName.empty() && internalCmd == CommandType::UNKNOWN) {
     spdlog::info("ProcessCommand: unrecognised command, forwarding to AI layer");
     AIResult aiResult = aiClient_.ProcessNaturalLanguage(payload);
 
@@ -65,6 +75,9 @@ JarvisServiceImpl::~JarvisServiceImpl() {
           aiResult.intent, aiResult.confidence);
       internalCmd = classifiedCmd;
       dispatchResult = registry_.dispatch(classifiedCmd, payload, execContext);
+      if (const Capability* capability = registry_.resolve(classifiedCmd)) {
+        intentName = capability->intentName;
+      }
       dispatchFailed = !dispatchResult.has_value();
       output = dispatchResult.value_or("Command is currently unavailable.");
     } else {
@@ -84,6 +97,7 @@ JarvisServiceImpl::~JarvisServiceImpl() {
   response->set_message(output);
   response->set_command_type(internalCommandToProto(internalCmd));
   response->set_error_code(resultToProtoErrorCode(success));
+  response->set_intent(intentName);
 
   return ::grpc::Status::OK;
 }
@@ -103,6 +117,8 @@ CommandType JarvisServiceImpl::protoCommandToInternal(jarvis::v1::CommandType pr
       return CommandType::ABOUT;
     case jarvis::v1::COMMAND_TYPE_STATUS:
       return CommandType::STATUS;
+    case jarvis::v1::COMMAND_TYPE_SYSTEM_INFO:
+      return CommandType::SYSTEM_INFO;
     case jarvis::v1::COMMAND_TYPE_UNSPECIFIED:
     default:
       return CommandType::UNKNOWN;
@@ -124,6 +140,8 @@ jarvis::v1::CommandType JarvisServiceImpl::internalCommandToProto(CommandType in
       return jarvis::v1::COMMAND_TYPE_ABOUT;
     case CommandType::STATUS:
       return jarvis::v1::COMMAND_TYPE_STATUS;
+    case CommandType::SYSTEM_INFO:
+      return jarvis::v1::COMMAND_TYPE_SYSTEM_INFO;
     default:
       return jarvis::v1::COMMAND_TYPE_UNSPECIFIED;
   }
@@ -134,6 +152,7 @@ CommandType JarvisServiceImpl::intentToCommandType(const std::string& intent) {
   if (intent == "STATUS") return CommandType::STATUS;
   if (intent == "ECHO") return CommandType::ECHO;
   if (intent == "ABOUT") return CommandType::ABOUT;
+  if (intent == "SYSTEM_INFO") return CommandType::SYSTEM_INFO;
   return CommandType::UNKNOWN;
 }
 

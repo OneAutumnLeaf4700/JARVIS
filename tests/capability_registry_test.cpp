@@ -108,15 +108,40 @@ TEST(StatusCapabilityTest, IsPowerTierT0) {
     EXPECT_EQ(status->powerTier, PowerTier::T0_READ_ONLY);
 }
 
-TEST(BuiltinCapabilitiesTest, RegistersExactlyFourExpectedCapabilities) {
+TEST(SystemInfoCapabilityTest, ReturnsLocalRuntimeInformation) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
-    EXPECT_EQ(registry.all().size(), 4u);
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::SYSTEM_INFO, "", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("System information:"), std::string::npos);
+    EXPECT_NE(result->find("OS:"), std::string::npos);
+    EXPECT_NE(result->find("Architecture:"), std::string::npos);
+    EXPECT_NE(result->find("Hardware threads:"), std::string::npos);
+}
+
+TEST(SystemInfoCapabilityTest, IsPowerTierT0) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    const Capability* systemInfo = registry.resolve(CommandType::SYSTEM_INFO);
+    ASSERT_NE(systemInfo, nullptr);
+    EXPECT_EQ(systemInfo->powerTier, PowerTier::T0_READ_ONLY);
+}
+
+TEST(BuiltinCapabilitiesTest, RegistersExactlyFiveExpectedCapabilities) {
+    CapabilityRegistry registry;
+    registerBuiltinCapabilities(registry);
+
+    EXPECT_EQ(registry.all().size(), 5u);
     EXPECT_NE(registry.resolve(CommandType::ECHO), nullptr);
     EXPECT_NE(registry.resolve(CommandType::STATUS), nullptr);
     EXPECT_NE(registry.resolve(CommandType::ABOUT), nullptr);
     EXPECT_NE(registry.resolve(CommandType::HELP), nullptr);
+    EXPECT_NE(registry.resolve(CommandType::SYSTEM_INFO), nullptr);
     EXPECT_EQ(registry.resolve(CommandType::UNKNOWN), nullptr);
 }
 
@@ -129,7 +154,7 @@ TEST(HelpCapabilityTest, IsPowerTierT0) {
     EXPECT_EQ(help->powerTier, PowerTier::T0_READ_ONLY);
 }
 
-TEST(HelpCapabilityTest, ListsAllFourBuiltinsWithoutHardcodingThem) {
+TEST(HelpCapabilityTest, ListsAllFiveBuiltinsWithoutHardcodingThem) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
@@ -142,6 +167,7 @@ TEST(HelpCapabilityTest, ListsAllFourBuiltinsWithoutHardcodingThem) {
     EXPECT_NE(result->find("status"), std::string::npos);
     EXPECT_NE(result->find("about"), std::string::npos);
     EXPECT_NE(result->find("help"), std::string::npos);
+    EXPECT_NE(result->find("system-info"), std::string::npos);
 }
 
 TEST(HelpCapabilityTest, DoesNotListUnknown) {
@@ -308,7 +334,7 @@ TEST_F(CapabilityRegistryGrantTest, T2CapabilityWithGrantExecutesNormally) {
     EXPECT_EQ(*result, "volume set to 50");
 }
 
-TEST(CapabilityRegistryPluginGateTest, AllFourBuiltinsStillDispatchWithPluginConfigSetAndEmptyConfig) {
+TEST(CapabilityRegistryPluginGateTest, AllFiveBuiltinsDispatchWithPluginConfigSetAndEmptyConfig) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);
 
@@ -322,4 +348,5 @@ TEST(CapabilityRegistryPluginGateTest, AllFourBuiltinsStillDispatchWithPluginCon
     EXPECT_TRUE(registry.dispatch(CommandType::STATUS, "", context).has_value());
     EXPECT_TRUE(registry.dispatch(CommandType::ABOUT, "", context).has_value());
     EXPECT_TRUE(registry.dispatch(CommandType::HELP, "", context).has_value());
+    EXPECT_TRUE(registry.dispatch(CommandType::SYSTEM_INFO, "", context).has_value());
 }

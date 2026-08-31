@@ -36,6 +36,7 @@ KNOWN_COMMANDS = {
     "status": jarvis_pb2.COMMAND_TYPE_STATUS,
     "about": jarvis_pb2.COMMAND_TYPE_ABOUT,
     "help": jarvis_pb2.COMMAND_TYPE_HELP,
+    "system-info": jarvis_pb2.COMMAND_TYPE_SYSTEM_INFO,
 }
 
 # Matches the literal bracketed format ai/jarvis_ai_server.py emits:

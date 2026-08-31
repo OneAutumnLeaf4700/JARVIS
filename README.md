@@ -12,8 +12,8 @@ Phase 4 — runtime plugins, desktop control, and integrations — is next.
 
 ## What works today
 
-- C++ core engine with a stateful CLI loop (`echo`, `help`, `help <command>`, `about`, `status`, `exit`)
-- Registry-based capability dispatch for `echo`, `help`, `about`, and `status`; each capability declares a power tier (all current built-ins are read-only T0)
+- C++ core engine with a stateful CLI loop (`echo`, `help`, `help <command>`, `about`, `status`, `system-info`, `exit`)
+- Registry-based capability dispatch for `echo`, `help`, `about`, `status`, and `system-info`; each capability declares a power tier (all current built-ins are read-only T0)
 - Transport-agnostic capability execution — capabilities return strings, so the same dispatch serves the CLI and gRPC service
 - C++ gRPC server on `:50051` exposing the engine via `JarvisService.ProcessCommand`
 - Python gRPC AI server on `:50052` exposing `JarvisAIService.ProcessNaturalLanguage`, with rule-based intent classification and local Ollama escalation on a rule miss
@@ -159,7 +159,7 @@ This produces two binaries:
 ./build/jarvis
 ```
 
-Try `help`, `echo hi`, `status`, `about`, `exit`.
+Try `help`, `echo hi`, `status`, `system-info`, `about`, `exit`.
 
 ### Plugin manager: enable/disable and T2 consent
 

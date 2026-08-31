@@ -12,7 +12,8 @@ enum class CommandType {
     EXIT,
     HELP,
     ABOUT,
-    STATUS
+    STATUS,
+    SYSTEM_INFO
 };
 
 //Structs
