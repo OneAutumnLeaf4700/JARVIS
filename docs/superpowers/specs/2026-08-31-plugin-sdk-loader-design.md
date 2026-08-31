@@ -26,9 +26,16 @@ desktop, media, calendar) is meant to ship as a loadable `.so`, not a compiled-i
   that already has full test coverage from the previous commit.
 - A minimal, purpose-built config surface for plugin directories (same hand-rolled
   `key=value` discipline as `PluginConfig` — INV-10, no JSON/YAML C++ library for the config
-  file itself; the plugin *manifest* format is JSON specifically because manifests are
-  authored per-plugin, potentially by a third party, and a structured nested format earns its
-  complexity there in a way a flat host config file doesn't).
+  file itself). The plugin *manifest* format is JSON (§4) because manifests are structured and
+  potentially third-party-authored, but the JSON itself is parsed by a small **hand-rolled**
+  parser scoped to exactly the bounded manifest schema (objects, arrays, strings, numbers,
+  booleans — no need for the general JSON grammar), not a third-party library: no JSON/XML
+  library is currently installed on this machine (`nlohmann-json` is available via `pacman`
+  but not installed, and pulling it via CMake `FetchContent` means a network fetch at
+  configure time), and per INV-10 a hand-rolled parser for a schema this small and fixed is
+  consistent with how `PluginConfig` and `command_handler.cpp` already parse their own formats
+  in this codebase — this is also literally one of the concepts JARVIS exists to teach
+  (project `CLAUDE.md` §0: "parsers... schema versioning").
 
 **Out of scope (deliberately, per the Codex plan's own phasing and existing project
 precedent):**
@@ -133,6 +140,53 @@ One `manifest.json` per plugin, colocated with its `.so` in a directory the load
   ]
 }
 ```
+
+**Parser:** `core/minimal_json.h/.cpp` — a small hand-rolled recursive-descent parser (see the
+"In scope" note in §1 for why hand-rolled) producing one variant type:
+
+```cpp
+// core/minimal_json.h
+#pragma once
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+enum class JsonType { Null, Boolean, Number, String, Array, Object };
+
+class JsonValue {
+ public:
+    JsonType type = JsonType::Null;
+    bool boolValue = false;
+    double numberValue = 0.0;
+    std::string stringValue;
+    std::vector<JsonValue> arrayValue;
+    std::map<std::string, JsonValue> objectValue;
+
+    // Convenience accessors used by the manifest loader — return a sensible zero-value
+    // (empty string / null JsonValue) rather than throwing when a key is absent or the
+    // wrong type, so manifest validation can check "was this field present and a string"
+    // explicitly instead of catching exceptions.
+    const JsonValue* find(const std::string& key) const;   // Object lookup; nullptr if absent/not-object
+    std::string asString(const std::string& fallback = "") const;
+    bool isString() const;
+    bool isArray() const;
+    bool isObject() const;
+};
+
+// Returns std::nullopt on any parse error (malformed JSON) — the manifest loader treats a
+// parse failure as "reject this plugin, log a warning, continue scanning others" (§1), never
+// a crash or exception escaping this function.
+std::optional<JsonValue> parseJson(const std::string& text);
+```
+
+Scope: standard JSON grammar (objects, arrays, strings with the common `\"`/`\\`/`\n` escapes,
+numbers, `true`/`false`/`null`) — no need for `\uXXXX` unicode escape sequences (manifests are
+ASCII identifiers/descriptions in practice; a `\uXXXX` sequence in a manifest is simply
+unsupported and causes that manifest to fail parsing, which is an acceptable, honestly-logged
+rejection rather than silently mis-parsing it). This is deliberately not a general-purpose
+JSON library — it exists solely to read `manifest.json` files against the fixed schema in §4,
+and its test suite (§10) should reflect that scope, not attempt full JSON-spec conformance.
 
 Directory layout the loader expects, one subdirectory per plugin:
 ```
