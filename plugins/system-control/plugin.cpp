@@ -129,6 +129,17 @@ char* volumeExecute(const char* payload) {
     return makeResult("Failed to set volume — is 'pactl' installed and a sink present?");
 }
 
+char* shutdownExecute(const char* /*payload*/) {
+    // Reaching this function at all means ConsentGate already verified the caller's payload
+    // contained the standalone "confirm" token (Task 1) — the plugin does not re-check payload
+    // content itself (INV-9: the capability never invents its own guardrail, it trusts the
+    // gate that ran before it).
+    if (runCommand(buildShutdownArgv())) {
+        return makeResult("Shutting down.");
+    }
+    return makeResult("Failed to shut down — is 'systemctl' available and permitted for this user?");
+}
+
 }  // namespace
 
 extern "C" int jarvis_plugin_abi_version() {
@@ -136,8 +147,14 @@ extern "C" int jarvis_plugin_abi_version() {
 }
 
 extern "C" int jarvis_plugin_register(void* host_context, const JarvisPluginHost* host) {
-    return host->registerCapability(
+    const int volumeOk = host->registerCapability(
         host_context, "volume",
         "Gets or sets system output volume (0-100). Usage: volume get | volume set <0-100>",
         JARVIS_POWER_TIER_T2_SYSTEM_AFFECTING, &volumeExecute);
+    const int shutdownOk = host->registerCapability(
+        host_context, "shutdown",
+        "Powers off the machine. Requires the word 'confirm' in the command every time "
+        "(T3 — never covered by a grant). Usage: shutdown confirm",
+        JARVIS_POWER_TIER_T3_DESTRUCTIVE, &shutdownExecute);
+    return volumeOk && shutdownOk;
 }

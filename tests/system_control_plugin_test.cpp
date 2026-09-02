@@ -47,3 +47,11 @@ TEST(BuildVolumeArgvTest, ProducesPactlSetSinkVolumeCommand) {
     EXPECT_EQ(argv[2], "@DEFAULT_SINK@");
     EXPECT_EQ(argv[3], "50%");
 }
+
+TEST(BuildShutdownArgvTest, ProducesSystemctlPoweroffCommand) {
+    std::vector<std::string> argv = buildShutdownArgv();
+
+    ASSERT_EQ(argv.size(), 2u);
+    EXPECT_EQ(argv[0], "systemctl");
+    EXPECT_EQ(argv[1], "poweroff");
+}

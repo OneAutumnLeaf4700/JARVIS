@@ -8,6 +8,11 @@
       "intent": "volume",
       "description": "Gets or sets system output volume (0-100). Usage: volume get | volume set <0-100>",
       "power_tier": "T2_SYSTEM_AFFECTING"
+    },
+    {
+      "intent": "shutdown",
+      "description": "Powers off the machine. Requires the word 'confirm' in the command every time (T3 — never covered by a grant). Usage: shutdown confirm",
+      "power_tier": "T3_DESTRUCTIVE"
     }
   ]
 }
