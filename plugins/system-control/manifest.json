@@ -1,0 +1,13 @@
+{
+  "id": "system-control",
+  "version": "1.0.0",
+  "abi_version": 1,
+  "library": "libsystem_control_plugin.so",
+  "capabilities": [
+    {
+      "intent": "volume",
+      "description": "Gets or sets system output volume (0-100). Usage: volume get | volume set <0-100>",
+      "power_tier": "T2_SYSTEM_AFFECTING"
+    }
+  ]
+}

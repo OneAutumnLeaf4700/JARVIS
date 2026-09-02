@@ -111,6 +111,8 @@ add_executable(
     tests/consent_gate_test.cpp
     tests/minimal_json_test.cpp
     tests/plugin_loader_test.cpp
+    tests/system_control_plugin_test.cpp
+    plugins/system-control/plugin_internal.cpp
     core/capability_registry.cpp
     core/command_handler.cpp
     core/engine.cpp
@@ -183,6 +185,21 @@ add_custom_command(TARGET system_info_plugin POST_BUILD
 add_dependencies(jarvis system_info_plugin)
 add_dependencies(jarvis_grpc_server system_info_plugin)
 add_dependencies(jarvis_tests system_info_plugin)
+
+add_library(system_control_plugin SHARED
+    plugins/system-control/plugin.cpp
+    plugins/system-control/plugin_internal.cpp)
+target_include_directories(system_control_plugin PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
+set_target_properties(system_control_plugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-control)
+add_custom_command(TARGET system_control_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/plugins/system-control/manifest.json
+        ${CMAKE_BINARY_DIR}/plugins/system-control/manifest.json)
+
+add_dependencies(jarvis system_control_plugin)
+add_dependencies(jarvis_grpc_server system_control_plugin)
+add_dependencies(jarvis_tests system_control_plugin)
 
 add_dependencies(jarvis_tests valid_echo_fixture bad_abi_fixture mismatched_tier_fixture blocking_fixture)
 

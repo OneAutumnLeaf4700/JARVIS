@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 
@@ -118,9 +119,12 @@ TEST(SystemInfoPluginTest, LoadsAndDispatchesViaPluginLoader) {
     // working directory (the relative "plugins" path only resolves when cwd is build/).
     std::vector<PluginLoadResult> results =
         pluginLoader.loadFromDirectory(JARVIS_BUILD_PLUGINS_DIR, registry);
-    ASSERT_EQ(results.size(), 1u);
-    EXPECT_TRUE(results[0].loaded);
-    EXPECT_EQ(results[0].pluginId, "system-info");
+    const auto systemInfoResult =
+        std::find_if(results.begin(), results.end(), [](const PluginLoadResult& result) {
+            return result.pluginId == "system-info";
+        });
+    ASSERT_NE(systemInfoResult, results.end());
+    EXPECT_TRUE(systemInfoResult->loaded);
 
     Engine engine;
     ExecutionContext context{engine, registry};
