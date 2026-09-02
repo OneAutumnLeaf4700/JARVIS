@@ -380,6 +380,49 @@ TEST_F(CapabilityRegistryGrantTest, T2CapabilityWithGrantExecutesNormally) {
     EXPECT_EQ(*result, "volume set to 50");
 }
 
+TEST(CapabilityRegistryPluginGateTest, T3CapabilityWithoutConfirmDeniesEvenWithNoPluginConfigSet) {
+    CapabilityRegistry registry;
+    bool executed = false;
+    registry.registerCapability(Capability{
+        "wipe_disk", CommandType::ECHO, "test", PowerTier::T3_DESTRUCTIVE,
+        [&executed](const std::string& payload, ExecutionContext&) {
+            executed = true;
+            return payload;
+        }
+    });
+    // setPluginConfig() deliberately never called — proves the T3/T4 gate holds even when the
+    // registry has no wired-in PluginConfig at all (the Important-1 final-review fix).
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::ECHO, "delete this", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->find("confirm"), std::string::npos);
+    EXPECT_FALSE(executed);
+}
+
+TEST(CapabilityRegistryPluginGateTest, T3CapabilityWithConfirmExecutesEvenWithNoPluginConfigSet) {
+    CapabilityRegistry registry;
+    bool executed = false;
+    registry.registerCapability(Capability{
+        "wipe_disk", CommandType::ECHO, "test", PowerTier::T3_DESTRUCTIVE,
+        [&executed](const std::string& payload, ExecutionContext&) {
+            executed = true;
+            return std::string("wiped");
+        }
+    });
+    // setPluginConfig() deliberately never called — same point as the denial test above.
+
+    Engine engine;
+    ExecutionContext context{engine, registry};
+    std::optional<std::string> result = registry.dispatch(CommandType::ECHO, "confirm", context);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(executed);
+    EXPECT_EQ(*result, "wiped");
+}
+
 TEST(CapabilityRegistryPluginGateTest, AllFourBuiltinsDispatchWithPluginConfigSetAndEmptyConfig) {
     CapabilityRegistry registry;
     registerBuiltinCapabilities(registry);

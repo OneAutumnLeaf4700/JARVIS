@@ -13,8 +13,8 @@ are next.
 
 ## What works today
 
-- C++ core engine with a stateful CLI loop (`echo`, `help`, `help <command>`, `about`, `status`, `system-info`, `exit`)
-- Registry-based capability dispatch for `echo`, `help`, `about`, `status` (compiled-in) and `system-info` (a dynamically-loaded plugin); each capability declares a power tier (all current capabilities are read-only T0)
+- C++ core engine with a stateful CLI loop (`echo`, `help`, `help <command>`, `about`, `status`, `system-info`, `volume`, `shutdown`, `exit`)
+- Registry-based capability dispatch for `echo`, `help`, `about`, `status` (compiled-in) and `system-info`, `volume`, `shutdown` (dynamically-loaded plugins); each capability declares a power tier — `echo`/`help`/`about`/`status`/`system-info` are read-only T0, `volume` is T2 (system-affecting, needs a grant), and `shutdown` is T3 (destructive, needs an explicit "confirm" on every call)
 - A dynamic plugin SDK/loader (`plugin_sdk/`, `core/plugin_loader.h/.cpp`) — capabilities can ship as independently-compiled `.so` files, manifest-validated and `dlopen`ed at startup, with no changes to `core/` needed to add one
 - Transport-agnostic capability execution — capabilities return strings, so the same dispatch serves the CLI and gRPC service
 - C++ gRPC server on `:50051` exposing the engine via `JarvisService.ProcessCommand`
@@ -161,7 +161,11 @@ This produces two binaries:
 ./build/jarvis
 ```
 
-Try `help`, `echo hi`, `status`, `system-info`, `about`, `exit`.
+Try `help`, `echo hi`, `status`, `system-info`, `about`, `exit`. Two more capabilities are
+consent-gated, not run-anywhere-by-default: `volume get` / `volume set <0-100>` (T2, needs
+`jarvis --grant volume` first) reads or sets output level via `pactl`, and `shutdown confirm`
+(T3, needs the literal word "confirm" on every call, never satisfied by a grant) powers off the
+machine via `systemctl poweroff`.
 
 ### Plugin manager: enable/disable and T2 consent
 
@@ -175,8 +179,11 @@ needs an explicit grant before it will run:
 ```
 
 This is the one interactive consent surface — it prompts `[y/n]` and persists the grant to
-`config/consent_grants.cfg`. T0/T1 capabilities don't need a grant (exits 0 immediately); T3/T4
-enforcement isn't implemented yet (exits 1).
+`config/consent_grants.cfg`. T0/T1 capabilities don't need a grant (exits 0 immediately). T3/T4
+capabilities (e.g. `shutdown`) are never satisfiable by a grant at all — `--grant` explains this
+and exits 0 without persisting anything; instead they require the literal word `confirm` as the
+last token of the payload on every single call (e.g. `shutdown confirm`), enforced by
+`ConsentGate` regardless of any prior grant.
 
 ### Plugins
 

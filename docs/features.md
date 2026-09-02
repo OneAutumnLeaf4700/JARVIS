@@ -72,9 +72,10 @@ The plugin manager is the prerequisite for everything else in this phase — it'
 - ✅ **System control plugin (volume + shutdown slice)** — `system-control` is the second bundled
   dynamic plugin (`plugins/system-control/`), alongside `system-info`. `volume` (T2) gets/sets
   output level via `pactl`, gated by the existing grant flow (`jarvis --grant volume`).
-  `shutdown` (T3) powers off via `systemctl poweroff`, gated by `ConsentGate`'s new per-call
-  confirm-token enforcement (see the Phase 2.5/consent-gate note below) rather than a grant —
-  proving both the T2 and T3 enforcement paths on a real capability. Both commands build their
+  `shutdown` (T3) powers off via `systemctl poweroff`, gated by `ConsentGate`'s per-call
+  confirm-token enforcement (see the "Plugin manager substrate" bullet above, in this same
+  Phase 4 section) rather than a grant — proving both the T2 and T3 enforcement paths on a real
+  capability. Both commands build their
   OS argv and invoke it via `posix_spawnp`, never a shell string, so no capability payload can
   inject shell syntax. `volume get` uses a second helper, `runCommandCapturingOutput`, which
   redirects the child's stdout into a pipe so `pactl`'s output actually flows back through

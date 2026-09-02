@@ -45,6 +45,20 @@ const Capability* CapabilityRegistry::resolve(const std::string& intentName) con
     return &it->second;
 }
 
+namespace {
+
+// T3/T4 (destructive/external) consent must hold even when no PluginConfig was ever wired in
+// (CapabilityRegistry::setPluginConfig() never called) — ConsentGate's T3/T4 branch never reads
+// PluginConfig at all (only T2's grant check does), so gating it is always safe and never
+// depends on config presence. T0/T1/T2 keep their exact prior "no config = no gating" behavior:
+// T0/T1 always pass regardless, and T2 legitimately needs a real config to mean anything.
+bool requiresGateRegardlessOfConfig(const Capability& capability) {
+    return capability.powerTier == PowerTier::T3_DESTRUCTIVE ||
+           capability.powerTier == PowerTier::T4_EXTERNAL;
+}
+
+}  // namespace
+
 std::optional<std::string> CapabilityRegistry::dispatch(
     CommandType intent, const std::string& payload, ExecutionContext& context) const {
     const Capability* capability = resolve(intent);
@@ -58,6 +72,13 @@ std::optional<std::string> CapabilityRegistry::dispatch(
         }
 
         ConsentGate gate(*pluginConfig_);
+        ConsentResult consent = gate.check(*capability, payload);
+        if (!consent.allowed) {
+            return consent.reason;
+        }
+    } else if (requiresGateRegardlessOfConfig(*capability)) {
+        static const PluginConfig kEmptyPluginConfig;
+        ConsentGate gate(kEmptyPluginConfig);
         ConsentResult consent = gate.check(*capability, payload);
         if (!consent.allowed) {
             return consent.reason;
@@ -80,6 +101,13 @@ std::optional<std::string> CapabilityRegistry::dispatch(
         }
 
         ConsentGate gate(*pluginConfig_);
+        ConsentResult consent = gate.check(*capability, payload);
+        if (!consent.allowed) {
+            return consent.reason;
+        }
+    } else if (requiresGateRegardlessOfConfig(*capability)) {
+        static const PluginConfig kEmptyPluginConfig;
+        ConsentGate gate(kEmptyPluginConfig);
         ConsentResult consent = gate.check(*capability, payload);
         if (!consent.allowed) {
             return consent.reason;

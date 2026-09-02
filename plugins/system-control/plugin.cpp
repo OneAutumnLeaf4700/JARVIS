@@ -1,11 +1,18 @@
+#include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cerrno>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "jarvis_plugin_abi.h"
@@ -15,11 +22,44 @@ extern char** environ;
 
 namespace {
 
+// INV-7: every cross-boundary call needs a deadline and an honest fallback. Spawning pactl /
+// systemctl is a boundary call just like the AI gRPC call elsewhere in this codebase (which uses
+// a 5s deadline) — a wedged child process (e.g. pactl blocking on a dead PulseAudio/PipeWire
+// socket) must not hang the CLI loop or a gRPC handler thread forever. 5 seconds mirrors that
+// existing reference deadline; there's nothing pactl/systemctl-specific requiring a different
+// value.
+constexpr std::chrono::milliseconds kChildDeadline{5000};
+constexpr std::chrono::milliseconds kPollInterval{20};
+
+// Waits for `pid` to exit without blocking past `deadline`. On timeout, kills the child (so it
+// can't keep running unbounded) and reaps it to avoid leaving a zombie, then reports failure —
+// callers treat this exactly like any other "command failed" outcome, never a crash/hang.
+bool waitForChildWithDeadline(pid_t pid, std::chrono::steady_clock::time_point deadline,
+                               int* statusOut) {
+    while (true) {
+        int status = 0;
+        const pid_t result = waitpid(pid, &status, WNOHANG);
+        if (result == pid) {
+            *statusOut = status;
+            return true;
+        }
+        if (result == -1) {
+            return false;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+            kill(pid, SIGKILL);
+            waitpid(pid, statusOut, 0);
+            return false;
+        }
+        std::this_thread::sleep_for(kPollInterval);
+    }
+}
+
 // Runs argv[0] with the given arguments via posix_spawnp (no shell — argv is passed straight
 // through, so nothing in `argv` can be interpreted as shell syntax regardless of its content).
 // Returns true and the command's own stdout+stderr are inherited straight through to JARVIS's
 // own — this plugin doesn't capture output, only exit status, since "volume set" and "shutdown"
-// only need to report success/failure, not relay text back.
+// only need to report success/failure, not relay text back. Bounded by kChildDeadline (INV-7).
 bool runCommand(const std::vector<std::string>& argv) {
     std::vector<char*> cargv;
     cargv.reserve(argv.size() + 1);
@@ -34,8 +74,9 @@ bool runCommand(const std::vector<std::string>& argv) {
         return false;
     }
 
+    const auto deadline = std::chrono::steady_clock::now() + kChildDeadline;
     int status = 0;
-    if (waitpid(pid, &status, 0) != pid) {
+    if (!waitForChildWithDeadline(pid, deadline, &status)) {
         return false;
     }
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
@@ -44,7 +85,8 @@ bool runCommand(const std::vector<std::string>& argv) {
 // Same execution model as runCommand, but redirects the child's stdout into a pipe and returns
 // what it wrote — needed for "volume get", whose whole point is to relay pactl's own output back
 // through execute()'s return value rather than leave it stuck on this process's inherited stdout
-// (INV-1: business logic returns data, it doesn't do surface-specific I/O).
+// (INV-1: business logic returns data, it doesn't do surface-specific I/O). Bounded end-to-end
+// (both the read loop and the final wait) by a single shared deadline (INV-7).
 std::optional<std::string> runCommandCapturingOutput(const std::vector<std::string>& argv) {
     std::vector<char*> cargv;
     cargv.reserve(argv.size() + 1);
@@ -54,7 +96,10 @@ std::optional<std::string> runCommandCapturingOutput(const std::vector<std::stri
     cargv.push_back(nullptr);
 
     int pipeFds[2];
-    if (pipe(pipeFds) != 0) {
+    // O_CLOEXEC: in a multithreaded gRPC server, a concurrent spawn from another in-flight
+    // capability call must not inherit this pipe's write end across its own exec — that would
+    // delay this call's EOF until the unrelated child also exits.
+    if (pipe2(pipeFds, O_CLOEXEC) != 0) {
         return std::nullopt;
     }
 
@@ -75,16 +120,69 @@ std::optional<std::string> runCommandCapturingOutput(const std::vector<std::stri
         return std::nullopt;
     }
 
+    const auto deadline = std::chrono::steady_clock::now() + kChildDeadline;
     std::string output;
     char buffer[256];
-    ssize_t bytesRead = 0;
-    while ((bytesRead = read(pipeFds[0], buffer, sizeof(buffer))) > 0) {
-        output.append(buffer, static_cast<size_t>(bytesRead));
+    bool timedOut = false;
+
+    while (true) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+            timedOut = true;
+            break;
+        }
+        const int remainingMs = static_cast<int>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
+
+        struct pollfd pfd;
+        pfd.fd = pipeFds[0];
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        const int pollResult = poll(&pfd, 1, remainingMs);
+
+        if (pollResult == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+            timedOut = true;
+            break;
+        }
+        if (pollResult == 0) {
+            timedOut = true;
+            break;
+        }
+
+        if (pfd.revents & POLLIN) {
+            ssize_t bytesRead = 0;
+            do {
+                bytesRead = read(pipeFds[0], buffer, sizeof(buffer));
+            } while (bytesRead == -1 && errno == EINTR);
+
+            if (bytesRead > 0) {
+                output.append(buffer, static_cast<size_t>(bytesRead));
+                continue;
+            }
+            if (bytesRead == 0) {
+                break;  // EOF — child closed its stdout.
+            }
+            // Real read error (not EINTR) — nothing more usable to read.
+            break;
+        }
+
+        // POLLHUP/POLLERR with no POLLIN pending: child closed the pipe with nothing left to read.
+        break;
     }
     close(pipeFds[0]);
 
+    if (timedOut) {
+        kill(pid, SIGKILL);
+        int status = 0;
+        waitpid(pid, &status, 0);
+        return std::nullopt;
+    }
+
     int status = 0;
-    if (waitpid(pid, &status, 0) != pid) {
+    if (!waitForChildWithDeadline(pid, deadline, &status)) {
         return std::nullopt;
     }
     if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
@@ -115,7 +213,7 @@ char* volumeExecute(const char* payload) {
         if (verb == "get") {
             std::optional<std::string> output =
                 runCommandCapturingOutput({"pactl", "get-sink-volume", "@DEFAULT_SINK@"});
-            if (output.has_value()) {
+            if (output.has_value() && !output->empty()) {
                 return makeResult(*output);
             }
             return makeResult("Could not read volume — is 'pactl' installed and a sink present?");
