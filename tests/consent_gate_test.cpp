@@ -131,3 +131,27 @@ TEST_F(ConsentGateFileTest, T4AllowedWithConfirmToken) {
 
     EXPECT_TRUE(result.allowed);
 }
+
+TEST_F(ConsentGateFileTest, T3DeniedWhenConfirmIsNotLastToken) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
+    ConsentGate gate(config);
+
+    // "confirm this" has "confirm" as a token but NOT as the last one — must be denied.
+    ConsentResult result =
+        gate.check(makeCapability("delete_files", PowerTier::T3_DESTRUCTIVE), "confirm this");
+
+    EXPECT_FALSE(result.allowed);
+    EXPECT_NE(result.reason.find("confirm"), std::string::npos);
+}
+
+TEST_F(ConsentGateFileTest, T4DeniedWhenConfirmIsNotLastToken) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
+    ConsentGate gate(config);
+
+    // "please confirm now" has "confirm" in the middle — must be denied.
+    ConsentResult result =
+        gate.check(makeCapability("call_external_api", PowerTier::T4_EXTERNAL), "please confirm now");
+
+    EXPECT_FALSE(result.allowed);
+    EXPECT_NE(result.reason.find("confirm"), std::string::npos);
+}

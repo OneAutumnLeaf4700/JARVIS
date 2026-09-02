@@ -32,9 +32,10 @@ int runGrantFlow(const std::string& capabilityName, const CapabilityRegistry& re
 
     if (capability->powerTier == PowerTier::T3_DESTRUCTIVE ||
         capability->powerTier == PowerTier::T4_EXTERNAL) {
-        std::cout << "'" << capabilityName << "' is power tier T3/T4 — enforcement isn't "
-                     "implemented yet, so it cannot be granted.\n";
-        return 1;
+        std::cout << "'" << capabilityName << "' is power tier T3/T4 — it doesn't use a "
+                     "persisted grant. Confirm it per call instead by adding 'confirm' to the "
+                     "command, e.g. '" << capabilityName << " confirm'.\n";
+        return 0;
     }
 
     if (capability->powerTier != PowerTier::T2_SYSTEM_AFFECTING) {

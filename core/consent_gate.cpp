@@ -5,18 +5,17 @@
 namespace {
 
 // T3/T4 confirmation is a per-call payload convention, never persisted (INV-9: "explicit
-// confirmation regardless of prior permissions"). The word "confirm" must appear as its own
-// whitespace-delimited token anywhere in the payload — a substring match would let something
-// like "reconfirmation" slip through by accident.
+// confirmation regardless of prior permissions"). The word "confirm" must appear as the LAST
+// whitespace-delimited token in the payload — not anywhere, and not as a substring (that would
+// let something like "reconfirmation" slip through by accident).
 bool payloadConfirms(const std::string& payload) {
     std::istringstream stream(payload);
     std::string token;
+    std::string lastToken;
     while (stream >> token) {
-        if (token == "confirm") {
-            return true;
-        }
+        lastToken = token;
     }
-    return false;
+    return lastToken == "confirm";
 }
 
 }  // namespace
