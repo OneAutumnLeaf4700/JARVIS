@@ -58,7 +58,7 @@ std::optional<std::string> CapabilityRegistry::dispatch(
         }
 
         ConsentGate gate(*pluginConfig_);
-        ConsentResult consent = gate.check(*capability);
+        ConsentResult consent = gate.check(*capability, payload);
         if (!consent.allowed) {
             return consent.reason;
         }
@@ -80,7 +80,7 @@ std::optional<std::string> CapabilityRegistry::dispatch(
         }
 
         ConsentGate gate(*pluginConfig_);
-        ConsentResult consent = gate.check(*capability);
+        ConsentResult consent = gate.check(*capability, payload);
         if (!consent.allowed) {
             return consent.reason;
         }

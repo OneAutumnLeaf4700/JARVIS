@@ -20,7 +20,7 @@ TEST(ConsentGateTest, T0AlwaysAllowedRegardlessOfConfig) {
     PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
     ConsentGate gate(config);
 
-    ConsentResult result = gate.check(makeCapability("echo", PowerTier::T0_READ_ONLY));
+    ConsentResult result = gate.check(makeCapability("echo", PowerTier::T0_READ_ONLY), "");
 
     EXPECT_TRUE(result.allowed);
     EXPECT_TRUE(result.reason.empty());
@@ -30,7 +30,8 @@ TEST(ConsentGateTest, T1AlwaysAllowedRegardlessOfConfig) {
     PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
     ConsentGate gate(config);
 
-    ConsentResult result = gate.check(makeCapability("some_stateful_thing", PowerTier::T1_STATEFUL_LOCAL));
+    ConsentResult result =
+        gate.check(makeCapability("some_stateful_thing", PowerTier::T1_STATEFUL_LOCAL), "");
 
     EXPECT_TRUE(result.allowed);
 }
@@ -39,7 +40,8 @@ TEST(ConsentGateTest, T2DeniedWithoutGrant) {
     PluginConfig config = PluginConfig::load("does_not_exist.cfg", "does_not_exist.cfg");
     ConsentGate gate(config);
 
-    ConsentResult result = gate.check(makeCapability("volume_control", PowerTier::T2_SYSTEM_AFFECTING));
+    ConsentResult result =
+        gate.check(makeCapability("volume_control", PowerTier::T2_SYSTEM_AFFECTING), "");
 
     EXPECT_FALSE(result.allowed);
     EXPECT_NE(result.reason.find("volume_control"), std::string::npos);
@@ -47,8 +49,7 @@ TEST(ConsentGateTest, T2DeniedWithoutGrant) {
 }
 
 // Shared fixture for tests that write grant files. Each test instance gets a filename unique
-// to the actual running test (via GTest's current_test_info(), not __FUNCTION__ — inside
-// SetUp() that macro always expands to the literal "SetUp", not the test's name), cleaned up
+// to the actual running test (via GTest's current_test_info(), not __FUNCTION__), cleaned up
 // unconditionally in TearDown() so a failed assertion can't leak the file into later runs.
 class ConsentGateFileTest : public ::testing::Test {
  protected:
@@ -70,30 +71,63 @@ TEST_F(ConsentGateFileTest, T2AllowedWithGrant) {
     config.grant("volume_control");
     ConsentGate gate(config);
 
-    ConsentResult result = gate.check(makeCapability("volume_control", PowerTier::T2_SYSTEM_AFFECTING));
+    ConsentResult result =
+        gate.check(makeCapability("volume_control", PowerTier::T2_SYSTEM_AFFECTING), "");
 
     EXPECT_TRUE(result.allowed);
     EXPECT_TRUE(result.reason.empty());
 }
 
-TEST_F(ConsentGateFileTest, T3AlwaysDeniedEvenIfSomehowGranted) {
+TEST_F(ConsentGateFileTest, T3DeniedWithoutConfirmTokenEvenIfSomehowGranted) {
     PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
     config.grant("delete_files");  // granting is meaningless for T3 — gate must ignore it
     ConsentGate gate(config);
 
-    ConsentResult result = gate.check(makeCapability("delete_files", PowerTier::T3_DESTRUCTIVE));
+    ConsentResult result = gate.check(makeCapability("delete_files", PowerTier::T3_DESTRUCTIVE), "");
 
     EXPECT_FALSE(result.allowed);
-    EXPECT_NE(result.reason.find("not yet implemented"), std::string::npos);
+    EXPECT_NE(result.reason.find("confirm"), std::string::npos);
 }
 
-TEST_F(ConsentGateFileTest, T4AlwaysDeniedEvenIfSomehowGranted) {
+TEST_F(ConsentGateFileTest, T3AllowedWithConfirmTokenEvenWithoutGrant) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
+    ConsentGate gate(config);
+
+    ConsentResult result =
+        gate.check(makeCapability("delete_files", PowerTier::T3_DESTRUCTIVE), "confirm");
+
+    EXPECT_TRUE(result.allowed);
+    EXPECT_TRUE(result.reason.empty());
+}
+
+TEST_F(ConsentGateFileTest, T3ConfirmTokenMustBeAWholeWord) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
+    ConsentGate gate(config);
+
+    // "reconfirmation" contains "confirm" as a substring but is not the standalone token.
+    ConsentResult result =
+        gate.check(makeCapability("delete_files", PowerTier::T3_DESTRUCTIVE), "reconfirmation");
+
+    EXPECT_FALSE(result.allowed);
+}
+
+TEST_F(ConsentGateFileTest, T4DeniedWithoutConfirmToken) {
     PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
     config.grant("call_external_api");
     ConsentGate gate(config);
 
-    ConsentResult result = gate.check(makeCapability("call_external_api", PowerTier::T4_EXTERNAL));
+    ConsentResult result = gate.check(makeCapability("call_external_api", PowerTier::T4_EXTERNAL), "");
 
     EXPECT_FALSE(result.allowed);
-    EXPECT_NE(result.reason.find("not yet implemented"), std::string::npos);
+    EXPECT_NE(result.reason.find("confirm"), std::string::npos);
+}
+
+TEST_F(ConsentGateFileTest, T4AllowedWithConfirmToken) {
+    PluginConfig config = PluginConfig::load("does_not_exist.cfg", grants_file_);
+    ConsentGate gate(config);
+
+    ConsentResult result =
+        gate.check(makeCapability("call_external_api", PowerTier::T4_EXTERNAL), "please confirm");
+
+    EXPECT_TRUE(result.allowed);
 }
