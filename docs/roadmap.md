@@ -182,7 +182,34 @@ must only run before the server begins serving concurrent requests, or from a ma
 that first stops dispatch. This is fine today (nothing calls disable/unload from a live request
 path yet) but is a hard constraint for any future live-reload capability.
 
-The remaining Phase 4 items (system control plugin, desktop interaction, file search, reminders,
-media control, calendar) are still 📋 To do — see [`features.md`](features.md).
+Next, `ConsentGate` grew real T3/T4 enforcement, and `system-control` landed as the second
+bundled dynamic plugin to prove it on a real capability:
+
+1. **Per-call confirm-token enforcement** (`core/consent_gate.h/.cpp`) — `ConsentGate::check()`
+   gained a `payload` parameter; T3/T4 capabilities are now allowed only when the payload's last
+   whitespace-delimited token is exactly `confirm` (anchored to the end, not a substring match
+   anywhere — a background security review during this work caught that scanning anywhere would
+   let free text like "shutdown don't confirm this yet" accidentally satisfy the gate). Per
+   INV-9, this is never satisfiable by a persisted grant. Both `CapabilityRegistry::dispatch()`
+   overloads thread the payload through, and `jarvis --grant`'s T3/T4 message now explains the
+   confirm-token convention instead of the old "not yet implemented" text.
+2. **`system-control` plugin** (`plugins/system-control/`) — the second bundled dynamic plugin
+   alongside `system-info`. `volume` (T2) gets/sets output level via `pactl`, gated by the
+   existing grant flow; a follow-up fix added `runCommandCapturingOutput` so `volume get` returns
+   `pactl`'s actual captured output rather than relying on inherited stdout (an INV-1 fix).
+   `shutdown` (T3) powers off via `systemctl poweroff`, gated by the new confirm-token
+   enforcement rather than a grant — the plugin itself never re-checks for "confirm"; it trusts
+   `ConsentGate` to have already enforced it before `shutdownExecute` is reached. Both commands
+   build their argv explicitly and invoke it via `posix_spawnp`, never a shell string.
+   Argument-parsing/argv-building logic was factored into `plugin_internal.h/.cpp` so it's
+   unit-testable without a live audio backend or without actually powering the machine off —
+   `system-control` is the first plugin to need that split, since `system-info` had no branching
+   logic to isolate. "Open apps" and "lock screen" — on the same original roadmap line — were
+   explicitly scoped out of this plan: arbitrary process launch needs its own allowlist/security
+   design, deferred to a future plan rather than folded in here.
+
+The remaining Phase 4 items (open apps / lock screen — system-control follow-up, desktop
+interaction, file search, reminders, media control, calendar) are still 📋 To do — see
+[`features.md`](features.md).
 
 See [`features.md`](features.md) for the full phase-by-phase checklist beyond this point.
