@@ -80,7 +80,27 @@ The plugin manager is the prerequisite for everything else in this phase — it'
   inject shell syntax. `volume get` uses a second helper, `runCommandCapturingOutput`, which
   redirects the child's stdout into a pipe so `pactl`'s output actually flows back through
   `execute()`'s return value instead of landing on JARVIS's own inherited stdout (an INV-1 fix
-  applied after the initial volume landing).
+  applied after the initial volume landing). Its whole POSIX implementation (`posix_spawnp`,
+  `pipe2`, `poll`, `waitpid`) is now guarded behind `#if defined(__linux__)` — on any other
+  platform both capabilities still register but immediately return a plain "isn't available on
+  this platform yet" message rather than attempting a nonexistent command (INV-7; see the
+  cross-platform plugin loader entry below).
+- ✅ **Cross-platform plugin loader (dlopen/LoadLibrary shim)** — `core/plugin_loader.cpp`'s
+  three raw `dlopen`/`dlsym`/`dlclose` call sites (the one place in `core/` with an OS-specific
+  primitive) now go through a new `core/dynamic_library.h/.cpp` shim (`dynlib::open/symbol/close/
+  lastError`) that resolves to `dlopen`-family calls on POSIX and `LoadLibrary`/`GetProcAddress`/
+  `FreeLibrary` on Windows behind `#ifdef _WIN32` — this was the actual compile blocker for a
+  native Windows build (MSVC has no `<dlfcn.h>`), not the system-control plugin. `dynlib::
+  platformLibraryFilename()` translates a manifest's POSIX-convention `lib<name>.so` filename to
+  `<name>.dll` on Windows, so `manifest.json` needs no per-platform variants. Every plugin
+  `SHARED` CMake target (the two real plugins plus all four test fixtures) gained
+  `WINDOWS_EXPORT_ALL_SYMBOLS TRUE` (MSVC exports no symbols by default, unlike GCC/Clang — without
+  this, `GetProcAddress` would find nothing) and an explicit `RUNTIME_OUTPUT_DIRECTORY` alongside
+  the existing `LIBRARY_OUTPUT_DIRECTORY` (a Windows DLL is a *runtime* artifact; only its import
+  `.lib` is governed by `LIBRARY_OUTPUT_DIRECTORY`). Zero behavior change on Linux — the POSIX
+  branch of the shim is what `dynlib::open/symbol/close` already did directly. **Caveat:**
+  build-verified on Linux only (86/86 C++ tests pass unchanged); no real Windows/MSVC/vcpkg build
+  has been attempted yet. See `docs/project-guide.md`'s Platform support section.
 - 📋 System control plugin — open apps, lock screen (deferred: arbitrary process launch needs its
   own allowlist design, scoped as a separate follow-up rather than folded into the volume/shutdown
   slice above)

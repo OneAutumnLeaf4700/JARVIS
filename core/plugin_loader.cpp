@@ -1,7 +1,5 @@
 #include "plugin_loader.h"
 
-#include <dlfcn.h>
-
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -12,6 +10,7 @@
 
 #include "capability.h"
 #include "capability_registry.h"
+#include "dynamic_library.h"
 #include "minimal_json.h"
 #include "jarvis_plugin_abi.h"
 
@@ -213,10 +212,10 @@ std::vector<PluginLoadResult> PluginLoader::loadFromDirectory(const std::string&
             continue;
         }
 
-        const std::string libraryPath = pluginPath + "/" + libraryFile;
-        void* handle = dlopen(libraryPath.c_str(), RTLD_NOW | RTLD_LOCAL);
+        const std::string libraryPath = pluginPath + "/" + dynlib::platformLibraryFilename(libraryFile);
+        dynlib::Handle handle = dynlib::open(libraryPath);
         if (!handle) {
-            const std::string reason = std::string("dlopen failed: ") + dlerror();
+            const std::string reason = std::string("failed to load library: ") + dynlib::lastError();
             spdlog::warn("PluginLoader: {}: {}", manifestPath, reason);
             results.push_back({manifestId, false, reason});
             continue;
@@ -225,19 +224,19 @@ std::vector<PluginLoadResult> PluginLoader::loadFromDirectory(const std::string&
         using AbiVersionFn = int (*)();
         using RegisterFn = int (*)(void*, const JarvisPluginHost*);
 
-        auto abiVersionFn = reinterpret_cast<AbiVersionFn>(dlsym(handle, "jarvis_plugin_abi_version"));
-        auto registerFn = reinterpret_cast<RegisterFn>(dlsym(handle, "jarvis_plugin_register"));
+        auto abiVersionFn = reinterpret_cast<AbiVersionFn>(dynlib::symbol(handle, "jarvis_plugin_abi_version"));
+        auto registerFn = reinterpret_cast<RegisterFn>(dynlib::symbol(handle, "jarvis_plugin_register"));
 
         if (!abiVersionFn || !registerFn) {
             spdlog::warn("PluginLoader: {} is missing a required ABI symbol", libraryPath);
-            dlclose(handle);
+            dynlib::close(handle);
             results.push_back({manifestId, false, "missing ABI symbol"});
             continue;
         }
 
         if (abiVersionFn() != JARVIS_PLUGIN_ABI_VERSION) {
             spdlog::warn("PluginLoader: {} reports a different ABI version at runtime than declared", libraryPath);
-            dlclose(handle);
+            dynlib::close(handle);
             results.push_back({manifestId, false, "runtime ABI version mismatch"});
             continue;
         }
@@ -251,7 +250,7 @@ std::vector<PluginLoadResult> PluginLoader::loadFromDirectory(const std::string&
 
         if (!registerFn(&hostContext, &host)) {
             spdlog::warn("PluginLoader: {}'s jarvis_plugin_register() returned failure", libraryPath);
-            dlclose(handle);
+            dynlib::close(handle);
             results.push_back({manifestId, false, "plugin registration failed"});
             continue;
         }
@@ -274,7 +273,7 @@ std::vector<PluginLoadResult> PluginLoader::loadFromDirectory(const std::string&
 
         if (!crossCheckOk) {
             spdlog::warn("PluginLoader: {}: registered capabilities do not match its manifest", libraryPath);
-            dlclose(handle);
+            dynlib::close(handle);
             results.push_back({manifestId, false, "registered capabilities do not match manifest"});
             continue;
         }
@@ -321,7 +320,7 @@ bool PluginLoader::unloadPlugin(const std::string& pluginId) {
         return false;
     }
 
-    dlclose(it->second.handle);
+    dynlib::close(it->second.handle);
     plugins_.erase(it);
 
     auto idIt = std::find(loadedPluginIds_.begin(), loadedPluginIds_.end(), pluginId);
@@ -343,7 +342,7 @@ PluginLoader::~PluginLoader() {
     // one. dlclose()-ing here is then safe: nothing still references these libraries.
     for (auto& [id, plugin] : plugins_) {
         if (plugin.handle) {
-            dlclose(plugin.handle);
+            dynlib::close(plugin.handle);
         }
     }
 }

@@ -10,7 +10,10 @@ piece teaches something concrete.
 understanding layer (rules with local Ollama fallback), optional local voice input/output, and
 a dynamic plugin SDK/loader (Phase 4, in progress).
 
-**Platform:** Linux only right now — see [Platform support](docs/project-guide.md#platform-support) for why and what a port would take.
+**Platform:** Developed and tested on Linux. The core, gRPC layers, AI tier, and plugin loader
+are cross-platform-capable (Windows support is written but not yet build-verified on a real
+Windows machine); the `volume`/`shutdown` plugin only has a Linux backend today and reports so
+honestly elsewhere. See [Platform support](docs/project-guide.md#platform-support) for the detail.
 
 ---
 

@@ -14,7 +14,8 @@ struct PluginLoadResult {
     std::string reason;  // empty if loaded; human-readable rejection reason otherwise
 };
 
-// Discovers, validates, and dlopen()s plugins from configured trusted local directories. See
+// Discovers, validates, and loads (via dynlib::open — dlopen on POSIX, LoadLibrary on Windows)
+// plugins from configured trusted local directories. See
 // docs/superpowers/specs/2026-08-31-plugin-sdk-loader-design.md for the full manifest
 // validation order and safe-unload design.
 class PluginLoader {
@@ -33,8 +34,9 @@ class PluginLoader {
     // unknown or already disabled.
     bool disablePlugin(const std::string& pluginId, CapabilityRegistry& registry);
 
-    // dlclose()s a plugin's library. Returns false if the plugin is unknown, not yet
-    // disabled, or has an invocation currently in flight.
+    // Unloads a plugin's library (via dynlib::close — dlclose on POSIX, FreeLibrary on
+    // Windows). Returns false if the plugin is unknown, not yet disabled, or has an
+    // invocation currently in flight.
     bool unloadPlugin(const std::string& pluginId);
 
     const std::vector<std::string>& loadedPluginIds() const;

@@ -40,6 +40,7 @@ add_executable(
     core/consent_gate.cpp
     core/minimal_json.cpp
     core/plugin_loader.cpp
+    core/dynamic_library.cpp
 )
 
 target_include_directories(
@@ -87,6 +88,7 @@ add_executable(
     core/jarvis_service.cpp
     core/minimal_json.cpp
     core/plugin_loader.cpp
+    core/dynamic_library.cpp
 )
 
 target_include_directories(
@@ -120,6 +122,7 @@ add_executable(
     core/consent_gate.cpp
     core/minimal_json.cpp
     core/plugin_loader.cpp
+    core/dynamic_library.cpp
 )
 
 target_include_directories(
@@ -140,7 +143,9 @@ target_link_libraries(
 add_library(valid_echo_fixture SHARED tests/fixtures/plugins/valid-echo/plugin.cpp)
 target_include_directories(valid_echo_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(valid_echo_fixture PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/valid-echo)
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/valid-echo
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/valid-echo
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 add_custom_command(TARGET valid_echo_fixture POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/valid-echo/manifest.json
@@ -149,7 +154,9 @@ add_custom_command(TARGET valid_echo_fixture POST_BUILD
 add_library(bad_abi_fixture SHARED tests/fixtures/plugins/bad-abi/plugin.cpp)
 target_include_directories(bad_abi_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(bad_abi_fixture PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/bad-abi)
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/bad-abi
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/bad-abi
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 add_custom_command(TARGET bad_abi_fixture POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/bad-abi/manifest.json
@@ -158,7 +165,9 @@ add_custom_command(TARGET bad_abi_fixture POST_BUILD
 add_library(mismatched_tier_fixture SHARED tests/fixtures/plugins/mismatched-tier/plugin.cpp)
 target_include_directories(mismatched_tier_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(mismatched_tier_fixture PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/mismatched-tier)
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/mismatched-tier
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/mismatched-tier
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 add_custom_command(TARGET mismatched_tier_fixture POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/mismatched-tier/manifest.json
@@ -167,7 +176,9 @@ add_custom_command(TARGET mismatched_tier_fixture POST_BUILD
 add_library(blocking_fixture SHARED tests/fixtures/plugins/blocking/plugin.cpp)
 target_include_directories(blocking_fixture PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(blocking_fixture PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/blocking)
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/blocking
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/fixtures/plugins/blocking
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 add_custom_command(TARGET blocking_fixture POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/tests/fixtures/plugins/blocking/manifest.json
@@ -176,7 +187,9 @@ add_custom_command(TARGET blocking_fixture POST_BUILD
 add_library(system_info_plugin SHARED plugins/system-info/plugin.cpp)
 target_include_directories(system_info_plugin PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(system_info_plugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-info)
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-info
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-info
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 add_custom_command(TARGET system_info_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/plugins/system-info/manifest.json
@@ -191,7 +204,9 @@ add_library(system_control_plugin SHARED
     plugins/system-control/plugin_internal.cpp)
 target_include_directories(system_control_plugin PRIVATE ${CMAKE_SOURCE_DIR}/plugin_sdk)
 set_target_properties(system_control_plugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-control)
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-control
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/system-control
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 add_custom_command(TARGET system_control_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/plugins/system-control/manifest.json

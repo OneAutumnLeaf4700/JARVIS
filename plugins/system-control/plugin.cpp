@@ -1,9 +1,11 @@
+#if defined(__linux__)
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 #include <cerrno>
 #include <chrono>
@@ -18,9 +20,19 @@
 #include "jarvis_plugin_abi.h"
 #include "plugin_internal.h"
 
+#if defined(__linux__)
 extern char** environ;
+#endif
 
 namespace {
+
+char* makeResult(const std::string& text) {
+    char* result = static_cast<char*>(std::malloc(text.size() + 1));
+    std::memcpy(result, text.c_str(), text.size() + 1);
+    return result;
+}
+
+#if defined(__linux__)
 
 // INV-7: every cross-boundary call needs a deadline and an honest fallback. Spawning pactl /
 // systemctl is a boundary call just like the AI gRPC call elsewhere in this codebase (which uses
@@ -196,12 +208,6 @@ std::optional<std::string> runCommandCapturingOutput(const std::vector<std::stri
     return output;
 }
 
-char* makeResult(const std::string& text) {
-    char* result = static_cast<char*>(std::malloc(text.size() + 1));
-    std::memcpy(result, text.c_str(), text.size() + 1);
-    return result;
-}
-
 char* volumeExecute(const char* payload) {
     const std::string text = payload != nullptr ? payload : "";
     const std::optional<int> level = parseVolumeArgument(text);
@@ -237,6 +243,27 @@ char* shutdownExecute(const char* /*payload*/) {
     }
     return makeResult("Failed to shut down — is 'systemctl' available and permitted for this user?");
 }
+
+#else  // !defined(__linux__)
+
+// volume shells out to `pactl` (PulseAudio/PipeWire) and shutdown to `systemctl poweroff` —
+// both Linux-only system tools with no direct equivalent wired up on this platform yet (a real
+// port would use the Windows Core Audio API / macOS CoreAudio for volume, and the platform's own
+// shutdown call). Rather than attempting either and failing with a confusing "command not
+// found", both capabilities stay registered (so `help` lists them honestly) and immediately
+// report that plainly — this is the INV-7 fallback for a capability whose backend simply isn't
+// implemented on this platform, not an error path within a working implementation.
+char* volumeExecute(const char* /*payload*/) {
+    return makeResult(
+        "The 'volume' capability uses Linux's pactl and isn't available on this platform yet.");
+}
+
+char* shutdownExecute(const char* /*payload*/) {
+    return makeResult(
+        "The 'shutdown' capability uses Linux's systemctl and isn't available on this platform yet.");
+}
+
+#endif  // defined(__linux__)
 
 }  // namespace
 

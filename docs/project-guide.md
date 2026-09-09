@@ -118,17 +118,31 @@ JARVIS/
 
 ## Platform support
 
-JARVIS is developed and tested on **Linux only** right now. The C++ core, gRPC layers, and
-Python AI tier are written in portable C++17/Python and don't themselves assume Linux — but two
-built-in plugins currently shell out to Linux-only system tools:
+JARVIS is developed and tested on **Linux**. The core engine, gRPC layers, Python AI tier, and
+the dynamic plugin loader are all cross-platform-capable — the loader's one OS-specific
+primitive (loading a plugin's shared library) is abstracted behind `core/dynamic_library.h`
+(`dlopen`/`dlsym`/`dlclose` on POSIX, `LoadLibrary`/`GetProcAddress`/`FreeLibrary` on Windows via
+`#ifdef _WIN32`), and every plugin `SHARED` target in `CMakeLists.txt` sets
+`WINDOWS_EXPORT_ALL_SYMBOLS TRUE` so the plugin ABI functions are actually resolvable through
+`GetProcAddress` on an MSVC build. `manifest.json` files declare their library filename using the
+POSIX `lib<name>.so` convention regardless of platform — `platformLibraryFilename()` translates
+that to `<name>.dll` on Windows, so no per-platform manifest variants are needed.
 
-- `volume` uses `pactl` (PulseAudio/PipeWire)
-- `shutdown` uses `systemctl poweroff` (systemd)
+One plugin still only *does something* on Linux: `system-control` (`volume` via `pactl`,
+`shutdown` via `systemctl poweroff`) has no Windows backend implemented yet — real volume control
+there would go through the Windows Core Audio API (`IAudioEndpointVolume` via COM), and shutdown
+through the platform's own call. Rather than fail to compile or crash trying to spawn a
+nonexistent command, `plugins/system-control/plugin.cpp` guards its entire POSIX implementation
+behind `#if defined(__linux__)`; on any other platform both capabilities still register (so
+`help` lists them honestly) but immediately return a plain "isn't available on this platform yet"
+message instead of attempting anything (INV-7 — a capability that can't run here says so, it
+doesn't hang or fail silently).
 
-Everything else (core engine, gRPC services, intent classification, Ollama integration, voice
-STT/TTS) has no Linux-specific dependency, so a Windows/macOS port would mean swapping those two
-plugins' underlying commands (e.g. `nircmd`/Core Audio APIs for volume, `shutdown.exe`/`osascript`
-for power-off) — not a core rewrite. Nobody has done that port yet; Windows/macOS are untested.
+**Caveat:** this has only been build-verified on Linux. Nobody has actually compiled JARVIS on a
+real Windows machine with MSVC/vcpkg yet — the changes above are written to be correct
+cross-platform C++/CMake, but an actual Windows build (protobuf/gRPC/spdlog/gtest via vcpkg, then
+`cmake --build`) is the next real test. macOS hasn't been attempted at all. If you try either,
+please report back what broke.
 
 ---
 
